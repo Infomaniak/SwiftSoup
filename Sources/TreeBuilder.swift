@@ -49,8 +49,28 @@ public class TreeBuilder {
         return doc
     }
 
+    @available(iOS 13.0.0, *)
+    func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) async throws -> Document {
+        initialiseParse(input, baseUri, errors, settings)
+        try await runParser()
+        return doc
+    }
+
     public func runParser()throws {
         while (true) {
+            let token: Token = try tokeniser.read()
+            try process(token)
+            token.reset()
+
+            if (token.type == Token.TokenType.EOF) {
+                break
+            }
+        }
+    }
+
+    @available(iOS 13.0, *)
+    public func runParser() async throws {
+        while (true && !Task.isCancelled) {
             let token: Token = try tokeniser.read()
             try process(token)
             token.reset()

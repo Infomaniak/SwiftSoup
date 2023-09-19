@@ -47,6 +47,11 @@ import Foundation
 		return try Parser.parse(html, "")
 	}
 
+    @available(iOS 13.0.0, *)
+    public func parse(_ html: String) async throws -> Document {
+        return try await Parser.parse(html, "")
+    }
+
 	//todo:
 //	/**
 //	* Creates a new {@link Connection} to a URL. Use to fetch and parse a HTML page.

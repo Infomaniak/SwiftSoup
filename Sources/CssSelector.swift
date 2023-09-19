@@ -105,6 +105,11 @@ open class CssSelector {
         return try CssSelector(query, root).select()
     }
 
+    @available(iOS 13.0.0, *)
+    public static func select(_ query: String, _ root: Element) async throws -> Elements {
+        return try await CssSelector(query, root).select()
+    }
+
     /**
      * Find elements matching selector.
      *
@@ -144,6 +149,11 @@ open class CssSelector {
 
     private func select()throws->Elements {
         return try Collector.collect(evaluator, root)
+    }
+
+    @available(iOS 13.0.0, *)
+    private func select() async throws -> Elements {
+        return try await Collector.collect(evaluator, root)
     }
 
     // exclude set. package open so that Elements can implement .not() selector.

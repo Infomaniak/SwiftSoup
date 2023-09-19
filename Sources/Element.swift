@@ -277,6 +277,11 @@ open class Element: Node {
         return try CssSelector.select(cssQuery, self)
     }
 
+    @available(iOS 13.0.0, *)
+    public func select(_ cssQuery: String) async throws -> Elements {
+        return try await CssSelector.select(cssQuery, self)
+    }
+
     /**
      * Check if this element matches the given {@link CssSelector} CSS query.
      * @param cssQuery a {@link CssSelector} CSS query
