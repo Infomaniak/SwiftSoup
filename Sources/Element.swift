@@ -1217,8 +1217,37 @@ open class Element: Node {
         return self
     }
 
+    private static func preserveWhitespace(of node: Node?) -> Bool {
+        // looks only at this element and five levels up, to prevent recursion & needless stack searches
+        var currentElement = node as? Element
+        for _ in 0...5 {
+            guard let element = currentElement else { return false }
+
+            if element._tag.preserveWhitespace() {
+                return true
+            } else {
+                currentElement = element.parent()
+            }
+        }
+
+        return false
+    }
+
+    private func isFormatAsBlock(_ out: OutputSettings) -> Bool {
+        return _tag.isBlock() || parent()?.tag().formatAsBlock() == true || out.outline()
+    }
+
+    private func isInlineable(_ out: OutputSettings) -> Bool {
+        guard _tag.isInline() else { return false }
+        return parent()?.isBlock() == true && !isEffectivelyFirst() && !out.outline() && !isNode("br")
+    }
+
+    private func shouldIndent(_ out: OutputSettings) -> Bool {
+        return out.prettyPrint() && isFormatAsBlock(out) && !isInlineable(out) && !Self.preserveWhitespace(parentNode)
+    }
+
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
-        if (out.prettyPrint() && (_tag.formatAsBlock() || (parent() != nil && parent()!.tag().formatAsBlock()) || out.outline())) {
+        if shouldIndent(out) {
             if !accum.isEmpty {
                 indent(accum, depth, out)
             }

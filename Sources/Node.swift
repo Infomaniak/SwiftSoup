@@ -59,6 +59,22 @@ open class Node: Equatable, Hashable {
         preconditionFailure("This method must be overridden")
     }
 
+    public func isNode(_ name: String) -> Bool {
+        return nodeName() == name
+    }
+
+    public func isEffectivelyFirst() -> Bool {
+        if siblingIndex == 0 {
+            return true
+        } else if siblingIndex == 1 {
+            let previousSibling = previousSibling()
+            guard let textNode = previousSibling as? TextNode else { return false }
+            return textNode.isBlank()
+        } else {
+            return false
+        }
+    }
+
     /**
      * Get an attribute's value by its key. <b>Case insensitive</b>
      * <p>
