@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/scinfu/SwiftSoup/master/swiftsoup.png" alt="SwiftSoup" title="SwiftSoup">
 </p>
 
-
+[![StandWithPalestine](https://github.com/Safouene1/support-palestine-banner/blob/master/StandWithPalestine.svg)](https://bdsmovement.net/)
 ![Platform OS X | iOS | tvOS | watchOS | Linux](https://img.shields.io/badge/platform-Linux%20%7C%20OS%20X%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-orange.svg)
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-4BC51D.svg?style=flat)](https://github.com/apple/swift-package-manager)
 ![🐧 linux: ready](https://img.shields.io/badge/%F0%9F%90%A7%20linux-ready-red.svg)
@@ -11,6 +11,9 @@
 [![Version](https://img.shields.io/cocoapods/v/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![License](https://img.shields.io/cocoapods/l/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![Twitter](https://img.shields.io/badge/twitter-@scinfu-blue.svg?style=flat)](http://twitter.com/scinfu)
+
+[![ReadMeSupportPalestine](https://github.com/Safouene1/support-palestine-banner/blob/master/banner-support.svg)](https://bdsmovement.net/)
+
 
 `SwiftSoup` is a pure Swift library, cross-platform (macOS, iOS, tvOS, watchOS and Linux!), for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jQuery-like methods.
 `SwiftSoup` implements the WHATWG HTML5 specification, and parses HTML to the same DOM as modern browsers do.
@@ -204,6 +207,46 @@ do {
     let unsafe: String = "<p><a href='http://example.com/' onclick='stealCookies()'>Link</a></p>"
     let safe: String = try SwiftSoup.clean(unsafe, Whitelist.basic())!
     // now: <p><a href="http://example.com/" rel="nofollow">Link</a></p>
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
+}
+```
+
+If you supply a whole HTML document, with a `<head>` tag, the `clean(_: String, _: String, _: Whitelist)` method will just return the cleaned body HTML.
+You can clean both `<head>` and `<body>` by providing a `Whitelist` for each tags.
+
+```swift
+do {
+    let unsafe: String = """
+    <html>
+        <head>
+            <title>Hey</title>
+            <script>console.log('hi');</script>
+        </head>
+        <body>
+            <p>Hello, world!</p>
+        </body>
+    </html>
+    """
+
+    var headWhitelist: Whitelist = {
+        do {
+            let customWhitelist = Whitelist.none()
+            try customWhitelist
+                .addTags("meta", "style", "title")
+            return customWhitelist
+        } catch {
+            fatalError("Couldn't init head whitelist")
+        }
+    }()
+
+    let unsafeDocument: Document = try SwiftSoup.parse(unsafe)
+    let safe: String = try SwiftSoup.Cleaner(headWhitelist: headWhitelist, bodyWhitelist: .relaxed())
+                            .clean(unsafeDocument)
+                            .html()
+    // now: <html><head><title>Hey</title></head><body><p>Hello, world!</p></body></html>
 } catch Exception.Error(let type, let message) {
     print(message)
 } catch {
