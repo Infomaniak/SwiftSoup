@@ -121,7 +121,7 @@ public class Parser {
 	*
 	* @return list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
-	public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: String)throws->Array<Node> {
+	public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: String) throws -> Array<Node> {
 		let treeBuilder = HtmlTreeBuilder()
 		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
@@ -133,7 +133,7 @@ public class Parser {
 	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
 	* @return list of nodes parsed from the input XML.
 	*/
-	public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String)throws->Array<Node> {
+	public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String) throws -> Array<Node> {
 		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
 		return try treeBuilder.parseFragment(fragmentXml, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
@@ -146,7 +146,7 @@ public class Parser {
 	*
 	* @return Document, with empty head, and HTML parsed into body
 	*/
-	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
+	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		let doc: Document = Document.createShell(baseUri)
 		if let body: Element = doc.body() {
 			let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri)
@@ -169,7 +169,7 @@ public class Parser {
 	* @param inAttribute if the string is to be escaped in strict mode (as attributes are)
 	* @return an unescaped string
 	*/
-	public static func unescapeEntities(_ string: String, _ inAttribute: Bool)throws->String {
+	public static func unescapeEntities(_ string: String, _ inAttribute: Bool) throws -> String {
 		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking())
 		return try tokeniser.unescapeEntities(inAttribute)
 	}
@@ -181,7 +181,7 @@ public class Parser {
 	* @return parsed Document
 	* @deprecated Use {@link #parseBodyFragment} or {@link #parseFragment} instead.
 	*/
-	public static func parseBodyFragmentRelaxed(_ bodyHtml: String, _ baseUri: String)throws->Document {
+	public static func parseBodyFragmentRelaxed(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		return try parse(bodyHtml, baseUri)
 	}
 
