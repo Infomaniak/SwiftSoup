@@ -49,6 +49,7 @@ private final class Accumulator: NodeVisitor {
         self.eval = eval
     }
 
+    @inlinable
     public func head(_ node: Node, _ depth: Int) {
         guard let el = node as? Element else {
             return
