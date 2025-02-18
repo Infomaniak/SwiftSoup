@@ -348,7 +348,7 @@ open class Element: Node {
      * @return this element, so that you can add more child nodes or elements.
      */
     @discardableResult
-    public func appendChild(_ child: Node)throws->Element {
+    public func appendChild(_ child: Node) throws -> Element {
         // was - Node#addChildren(child). short-circuits an array create and a loop.
         try reparentChild(child)
         ensureChildNodes()
@@ -695,6 +695,7 @@ open class Element: Node {
      * @param tagName The tag name to search for (case insensitively).
      * @return a matching unmodifiable list of elements. Will be empty if this element and none of its children match.
      */
+    @inlinable
     public func getElementsByTag(_ tagName: String) throws -> Elements {
         return try getElementsByTag(tagName.utf8Array)
     }
@@ -704,6 +705,7 @@ open class Element: Node {
      * @param tagName The tag name to search for (case insensitively).
      * @return a matching unmodifiable list of elements. Will be empty if this element and none of its children match.
      */
+    @inlinable
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
         try Validate.notEmpty(string: tagName)
         let tagName = tagName.lowercased().trim()
@@ -720,7 +722,8 @@ open class Element: Node {
      * @param id The ID to search for.
      * @return The first matching element by ID, starting with this element, or null if none found.
      */
-    public func getElementById(_ id: String)throws->Element? {
+    @inlinable
+    public func getElementById(_ id: String) throws -> Element? {
         try Validate.notEmpty(string: id.utf8Array)
 
         let elements: Elements = try Collector.collect(Evaluator.Id(id), self)
@@ -742,10 +745,29 @@ open class Element: Node {
      * @see #hasClass(String)
      * @see #classNames()
      */
-    public func getElementsByClass(_ className: String)throws->Elements {
+    @inlinable
+    public func getElementsByClass(_ className: String) throws -> Elements {
         try Validate.notEmpty(string: className.utf8Array)
 
         return try Collector.collect(Evaluator.Class(className), self)
+    }
+    
+    /**
+     * Find elements that have this class, including or under this element. Case insensitive.
+     * <p>
+     * Elements can have multiple classes (e.g. {@code <div class="header round first">}. This method
+     * checks each class, so you can find the above with {@code el.getElementsByClass("header")}.
+     *
+     * @param className the name of the class to search for.
+     * @return elements with the supplied class name, empty if none
+     * @see #hasClass(String)
+     * @see #classNames()
+     */
+    @inlinable
+    public func getElementsByClass(_ className: [UInt8]) throws -> Elements {
+        try Validate.notEmpty(string: className)
+        
+        return try Collector.collect(Evaluator.Class(String(decoding: className, as: UTF8.self)), self)
     }
 
     /**
@@ -754,10 +776,10 @@ open class Element: Node {
      * @param key name of the attribute, e.g. {@code href}
      * @return elements that have this attribute, empty if none
      */
+    @inlinable
     public func getElementsByAttribute(_ key: String) throws -> Elements {
         try Validate.notEmpty(string: key.utf8Array)
         let key = key.trim()
-
         return try Collector.collect(Evaluator.Attribute(key), self)
     }
 
@@ -770,7 +792,6 @@ open class Element: Node {
     public func getElementsByAttributeStarting(_ keyPrefix: String) throws -> Elements {
         try Validate.notEmpty(string: keyPrefix.utf8Array)
         let keyPrefix = keyPrefix.trim()
-
         return try Collector.collect(Evaluator.AttributeStarting(keyPrefix.utf8Array), self)
     }
 
@@ -978,7 +999,7 @@ open class Element: Node {
      * @see #ownText()
      * @see #textNodes()
      */
-    class textNodeVisitor: NodeVisitor {
+    class TextNodeVisitor: NodeVisitor {
         let accum: StringBuilder
         let trimAndNormaliseWhitespace: Bool
         init(_ accum: StringBuilder, trimAndNormaliseWhitespace: Bool) {
@@ -1004,9 +1025,10 @@ open class Element: Node {
         public func tail(_ node: Node, _ depth: Int) {
         }
     }
+    
     public func text(trimAndNormaliseWhitespace: Bool = true)throws->String {
         let accum: StringBuilder = StringBuilder()
-        try NodeTraversor(textNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
         let text = accum.toString()
         if trimAndNormaliseWhitespace {
             return text.trim()
