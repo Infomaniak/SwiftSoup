@@ -351,8 +351,8 @@ open class Element: Node {
     public func appendChild(_ child: Node) throws -> Element {
         // was - Node#addChildren(child). short-circuits an array create and a loop.
         try reparentChild(child)
-        ensureChildNodes()
         childNodes.append(child)
+        updateQueryIndex(for: [child], adding: true)
         child.setSiblingIndex(childNodes.count - 1)
         return self
     }
@@ -531,6 +531,7 @@ open class Element: Node {
      */
     @discardableResult
     public func empty() -> Element {
+        updateQueryIndex(for: childNodes, adding: false)
         childNodes.removeAll()
         return self
     }
