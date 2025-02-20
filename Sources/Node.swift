@@ -28,27 +28,10 @@ open class Node: Equatable, Hashable {
     @usableFromInline
     weak var parentNode: Node? {
         didSet {
-            guard oldValue !== parentNode else { return }
+            guard oldValue !== parentNode, let element = self as? Element else { return }
             
-            if let element = self as? Element {
-                let key = element.tagNameNormalUTF8()
-                
-                if let oldParent = oldValue {
-                    if var elements = oldParent.normalizedTagNameIndex[key] {
-                        elements.removeAll { $0.value == element }
-                        if elements.isEmpty {
-                            oldParent.normalizedTagNameIndex.removeValue(forKey: key)
-                        } else {
-                            oldParent.normalizedTagNameIndex[key] = elements
-                        }
-                    }
-                }
-                
-                // TODO: reserve capacity
-                if let newParent = parentNode {
-                    newParent.normalizedTagNameIndex[key, default: []].append(Weak(element))
-                }
-            }
+            oldValue?.updateQueryIndex(for: [element], adding: false)
+            parentNode?.updateQueryIndex(for: [element], adding: true)
         }
     }
     
@@ -577,8 +560,6 @@ open class Node: Equatable, Hashable {
         let index: Int = out.siblingIndex
         let replacing = childNodes[index]
         childNodes[index] = input
-        updateQueryIndex(for: [replacing], adding: false)
-        updateQueryIndex(for: [input], adding: true)
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
@@ -589,7 +570,6 @@ open class Node: Equatable, Hashable {
         let index: Int = out.siblingIndex
         let removing = childNodes[index]
         childNodes.remove(at: index)
-        updateQueryIndex(for: [removing], adding: false)
         reindexChildren(index)
         out.parentNode = nil
     }
@@ -606,7 +586,6 @@ open class Node: Equatable, Hashable {
         for child in children {
             try reparentChild(child)
             childNodes.append(child)
-            updateQueryIndex(for: [child], adding: true)
             child.setSiblingIndex(childNodes.count - 1)
         }
     }
@@ -620,7 +599,6 @@ open class Node: Equatable, Hashable {
             let input: Node = children[i]
             try reparentChild(input)
             childNodes.insert(input, at: index)
-            updateQueryIndex(for: [input], adding: true)
             reindexChildren(index)
         }
     }
@@ -979,6 +957,7 @@ internal extension Node {
             if let added {
                 for element in added.lazy.compactMap({ $0 as? Element }) {
                     let key = element.tagNameNormalUTF8()
+                    // TODO: reserve capacity
                     parent.normalizedTagNameIndex[key, default: []].append(Weak(element))
                 }
             }
