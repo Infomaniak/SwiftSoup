@@ -38,7 +38,7 @@ open class Node: Equatable, Hashable {
     
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
-    
+
     @usableFromInline
     internal var isQueryIndexDirty: Bool = false
     
