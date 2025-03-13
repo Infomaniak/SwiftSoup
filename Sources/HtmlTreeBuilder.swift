@@ -220,7 +220,8 @@ class HtmlTreeBuilder: TreeBuilder {
         return el
     }
 
-    func insert(_ el: Element)throws {
+    @inlinable
+    func insert(_ el: Element) throws {
         try insertNode(el)
         stack.append(el)
     }
@@ -269,6 +270,7 @@ class HtmlTreeBuilder: TreeBuilder {
         try insertNode(comment)
     }
 
+    @inlinable
     func insert(_ characterToken: Token.Char) throws {
         var node: Node
         // characters in script and style go in as datanodes, not text nodes
@@ -283,9 +285,10 @@ class HtmlTreeBuilder: TreeBuilder {
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
 
-    private func insertNode(_ node: Node)throws {
+    @inlinable
+    internal func insertNode(_ node: Node) throws {
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
-        if (stack.count == 0) {
+        if stack.isEmpty {
             try doc.appendChild(node)
         } else if (isFosterInserts()) {
             try insertInFosterParent(node)
@@ -295,8 +298,8 @@ class HtmlTreeBuilder: TreeBuilder {
 
         // connect form controls to their form element
         if let n = (node as? Element) {
-            if(n.tag().isFormListed()) {
-                if ( formElement != nil) {
+            if n.tag().isFormListed() {
+                if formElement != nil {
                     formElement!.addElement(n)
                 }
             }
@@ -309,10 +312,12 @@ class HtmlTreeBuilder: TreeBuilder {
         return stack.remove(at: size-1)
     }
 
+    @inlinable
     func push(_ element: Element) {
         stack.append(element)
     }
 
+    @inlinable
     func getStack()->Array<Element> {
         return stack
     }
@@ -342,6 +347,7 @@ class HtmlTreeBuilder: TreeBuilder {
         return nil
     }
     
+    @inlinable
     func getFromStack(_ elName: String) -> Element? {
         return getFromStack(elName.utf8Array)
     }
@@ -641,6 +647,7 @@ class HtmlTreeBuilder: TreeBuilder {
         return headElement
     }
 
+    @inlinable
     func isFosterInserts() -> Bool {
         return fosterInserts
     }
