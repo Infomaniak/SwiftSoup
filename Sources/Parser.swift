@@ -112,6 +112,15 @@ public class Parser {
         return try parse(html.utf8Array, baseUri.utf8Array)
     }
 
+    public static func parse(_ data: Data, _ baseUri: [UInt8]) throws -> Document {
+        let treeBuilder: TreeBuilder = HtmlTreeBuilder()
+        return try treeBuilder.parse([UInt8](data), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
+
+    public static func parse(_ data: Data, _ baseUri: String) throws -> Document {
+        return try parse([UInt8](data), baseUri.utf8Array)
+    }
+
     @available(iOS 13.0.0, *)
     public static func parse(_ html: String, _ baseUri: String) async throws -> Document {
         let treeBuilder: TreeBuilder = HtmlTreeBuilder()
