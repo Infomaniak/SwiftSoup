@@ -141,7 +141,9 @@ open class Node: Equatable, Hashable {
             return val
         } else if (attributeKey.lowercased().starts(with: Node.abs)) {
             return try absUrl(attributeKey.substring(Node.abs.count))
-        } else {return Node.empty}
+        } else {
+            return Node.empty
+        }
     }
     
     open func attr(_ attributeKey: String) throws -> String {
