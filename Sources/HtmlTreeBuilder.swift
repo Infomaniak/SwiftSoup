@@ -99,6 +99,7 @@ class HtmlTreeBuilder: TreeBuilder {
             }
             
             root = try Element(Tag.valueOf(UTF8Arrays.html, settings), baseUri)
+            root?.treeBuilder = self
             try Validate.notNull(obj: root)
             try doc.appendChild(root!)
             stack.append(root!)
@@ -210,6 +211,7 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, skipChildReserve: skipChildReserve)
         }
+        el.treeBuilder = self
         try insert(el)
         return el
     }
@@ -217,6 +219,7 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func insertStartTag(_ startTagName: [UInt8]) throws -> Element {
         let el: Element = try Element(Tag.valueOf(startTagName, settings), baseUri)
+        el.treeBuilder = self
         try insert(el)
         return el
     }
@@ -237,6 +240,7 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
+        el.treeBuilder = self
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             if (tag.isKnownTag()) {
