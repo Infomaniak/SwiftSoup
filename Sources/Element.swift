@@ -1577,6 +1577,7 @@ open class Element: Node {
         return out.prettyPrint() && isFormatAsBlock(out) && !isInlineable(out) && !Self.preserveWhitespace(parentNode)
     }
 
+    @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
         if shouldIndent(out) {
             if !accum.isEmpty {
@@ -1600,6 +1601,7 @@ open class Element: Node {
         }
     }
     
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (!(childNodes.isEmpty && _tag.isSelfClosing())) {
             if (out.prettyPrint() && (!childNodes.isEmpty && (
@@ -1664,21 +1666,26 @@ open class Element: Node {
      * @see #append(String)
      */
     @discardableResult
+    @inline(__always)
     public func html(_ html: String) throws -> Element {
         empty()
         try append(html)
         return self
     }
     
+    @inline(__always)
     public override func copy(with zone: NSZone? = nil) -> Any {
         let clone = Element(_tag, baseUri!, attributes!)
         return copy(clone: clone)
     }
     
+    @inline(__always)
     public override func copy(parent: Node?) -> Node {
         let clone = Element(_tag, baseUri!, attributes!)
         return copy(clone: clone, parent: parent)
     }
+    
+    @inline(__always)
     public override func copy(clone: Node, parent: Node?) -> Node {
         return super.copy(clone: clone, parent: parent)
     }
@@ -1698,7 +1705,8 @@ open class Element: Node {
 }
 
 internal extension Element {
-    @inlinable
+    @usableFromInline
+    @inline(__always)
     func markQueryIndexesDirty() {
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
@@ -1711,7 +1719,8 @@ internal extension Element {
         }
     }
     
-    @inlinable
+    @usableFromInline
+    @inline(__always)
     func markTagQueryIndexDirty() {
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
@@ -1723,7 +1732,8 @@ internal extension Element {
         }
     }
     
-    @inlinable
+    @usableFromInline
+    @inline(__always)
     func markClassQueryIndexDirty() {
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
