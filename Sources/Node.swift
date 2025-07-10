@@ -32,6 +32,10 @@ open class Node: Equatable, Hashable {
         }
     }
     
+    /// Reference back to the parser that built this node (for bulk-build flag checks)
+    @usableFromInline
+    weak var treeBuilder: TreeBuilder?
+    
     @usableFromInline
     lazy var childNodes: [Node] = []
     
@@ -414,7 +418,7 @@ open class Node: Equatable, Hashable {
         try addSiblingHtml(siblingIndex, html)
         return self
     }
-
+    
     /**
      * Insert the specified node into the DOM before this node (i.e. as a preceding sibling).
      * @param node to add before this node
@@ -474,7 +478,7 @@ open class Node: Equatable, Hashable {
         let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
         try parentNode?.addChildren(index, nodes)
     }
-
+    
     /**
      * Insert the specified HTML into the DOM after this node (i.e. as a following sibling).
      * @param html HTML to add after this node
@@ -657,6 +661,8 @@ open class Node: Equatable, Hashable {
     public func reparentChild(_ child: Node)throws {
         try child.parentNode?.removeChild(child)
         try child.setParentNode(self)
+        // propagate builder reference for bulk-append checks
+        child.treeBuilder = self.treeBuilder
     }
     
     @usableFromInline
@@ -951,6 +957,8 @@ extension Node: CustomDebugStringConvertible {
 internal extension Node {
     @inlinable
     func markQueryIndexDirty() {
+        // Fast-exit during bulk builds; use builder flag instead of static
+        if let b = treeBuilder, b.isBulkBuilding { return }
         var current: Node? = self
         while let node = current {
             node.isQueryIndexDirty = true
