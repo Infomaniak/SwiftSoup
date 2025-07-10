@@ -391,6 +391,7 @@ open class Node: Equatable, Hashable {
      * Gets the Document associated with this Node.
      * @return the Document associated with this Node, or null if there is no such Document.
      */
+    @inline(__always)
     open func ownerDocument() -> Document? {
         if let this =  self as? Document {
             return this
@@ -404,6 +405,7 @@ open class Node: Equatable, Hashable {
     /**
      * Remove (delete) this node from the DOM tree. If this node has children, they are also removed.
      */
+    @inline(__always)
     open func remove() throws {
         try parentNode?.removeChild(self)
     }
@@ -415,6 +417,7 @@ open class Node: Equatable, Hashable {
      * @see #after(String)
      */
     @discardableResult
+    @inline(__always)
     open func before(_ html: String) throws -> Node {
         try addSiblingHtml(siblingIndex, html)
         return self
@@ -427,6 +430,7 @@ open class Node: Equatable, Hashable {
      * @see #after(String)
      */
     @discardableResult
+    @inline(__always)
     open func before(_ html: [UInt8]) throws -> Node {
         try addSiblingHtml(siblingIndex, html)
         return self
@@ -439,6 +443,7 @@ open class Node: Equatable, Hashable {
      * @see #after(Node)
      */
     @discardableResult
+    @inline(__always)
     open func before(_ node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
@@ -454,6 +459,7 @@ open class Node: Equatable, Hashable {
      * @see #before(String)
      */
     @discardableResult
+    @inline(__always)
     open func after(_ html: String) throws -> Node {
         try addSiblingHtml(siblingIndex + 1, html)
         return self
@@ -466,6 +472,7 @@ open class Node: Equatable, Hashable {
      * @see #before(Node)
      */
     @discardableResult
+    @inline(__always)
     open func after(_ node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
@@ -499,6 +506,7 @@ open class Node: Equatable, Hashable {
      * @see #before(String)
      */
     @discardableResult
+    @inline(__always)
     open func after(html: String) throws -> Node {
         try addSiblingHtml(siblingIndex + 1, html)
         return self
@@ -511,6 +519,7 @@ open class Node: Equatable, Hashable {
      * @see #before(Node)
      */
     @discardableResult
+    @inline(__always)
     open func after(node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
@@ -519,6 +528,7 @@ open class Node: Equatable, Hashable {
         return self
     }
     
+    @inline(__always)
     open func addSiblingHtml(index: Int, _ html: String)throws {
         try Validate.notNull(obj: html)
         try Validate.notNull(obj: parentNode)
@@ -587,6 +597,7 @@ open class Node: Equatable, Hashable {
         return firstChild
     }
     
+    @inline(__always)
     private func getDeepChild(el: Element) -> Element {
         let children = el.children()
         if (children.size() > 0) {
@@ -639,13 +650,13 @@ open class Node: Equatable, Hashable {
         out.parentNode = nil
     }
     
-    @inlinable
+    @inline(__always)
     public func addChildren(_ children: Node...) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         try addChildren(children)
     }
     
-    @inlinable
+    @inline(__always)
     public func addChildren(_ children: [Node]) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         for child in children {
@@ -655,12 +666,12 @@ open class Node: Equatable, Hashable {
         }
     }
     
-    @inlinable
+    @inline(__always)
     public func addChildren(_ index: Int, _ children: Node...) throws {
         try addChildren(index, children)
     }
     
-    @inlinable
+    @inline(__always)
     public func addChildren(_ index: Int, _ children: [Node]) throws {
         for i in (0..<children.count).reversed() {
             let input: Node = children[i]
@@ -710,7 +721,7 @@ open class Node: Equatable, Hashable {
      Get this node's next sibling.
      @return next sibling, or null if this is the last sibling
      */
-    @inlinable
+    @inline(__always)
     open func nextSibling() -> Node? {
         guard hasNextSibling() else { return nil }
         guard let siblings: Array<Node> = parent()?.getChildNodes() else {
@@ -719,7 +730,7 @@ open class Node: Equatable, Hashable {
         return siblings[siblingIndex + 1]
     }
     
-    @inlinable
+    @inline(__always)
     open func hasNextSibling() -> Bool {
         guard let parent = parent() else {
             return false
@@ -731,6 +742,7 @@ open class Node: Equatable, Hashable {
      Get this node's previous sibling.
      @return the previous sibling, or null if this is the first sibling
      */
+    @inline(__always)
     open func previousSibling() -> Node? {
         if (parentNode == nil) {
             return nil // root
@@ -743,6 +755,7 @@ open class Node: Equatable, Hashable {
         }
     }
     
+    @inline(__always)
     public func setSiblingIndex(_ siblingIndex: Int) {
         self.siblingIndex = siblingIndex
     }
@@ -908,11 +921,13 @@ open class Node: Equatable, Hashable {
             self.out = out
         }
         
-        open func head(_ node: Node, _ depth: Int)throws {
+        @inline(__always)
+        open func head(_ node: Node, _ depth: Int) throws {
             try node.outerHtmlHead(accum, depth, out)
         }
         
-        open func tail(_ node: Node, _ depth: Int)throws {
+        @inline(__always)
+        open func tail(_ node: Node, _ depth: Int) throws {
             // When compiling a release optimized swift linux 4.2 version the "saves a void hit."
             // causes a SIL error. Removing optimization on linux until a fix is found.
 #if os(Linux)
