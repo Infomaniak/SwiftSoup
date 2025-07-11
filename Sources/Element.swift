@@ -1104,6 +1104,16 @@ open class Element: Node, @unchecked Sendable {
         return Array(text)
     }
     
+    public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
+        let accum: StringBuilder = StringBuilder()
+        try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        let text = accum.buffer
+        if trimAndNormaliseWhitespace {
+            return text.trim()
+        }
+        return text
+    }
+
     /**
      * Gets the text owned by this element only; does not get the combined text of all children.
      * <p>
@@ -1250,7 +1260,7 @@ open class Element: Node, @unchecked Sendable {
      * @return set of classnames, empty if no class attribute
      */
     @inlinable
-    internal func unorderedClassNamesUTF8() throws -> [ArraySlice<UInt8>] {
+    public func unorderedClassNamesUTF8() throws -> [ArraySlice<UInt8>] {
         let input = try classNameUTF8()
         var result = [ArraySlice<UInt8>]()
         result.reserveCapacity(Int(ceil(CGFloat(input.underestimatedCount) / 10)))
