@@ -988,5 +988,91 @@ class ElementTest: XCTestCase {
         XCTAssertEqual(1, els.size())
     }
 
+    func testGetElementsByClassNormalizationRegression() throws {
+        let document = try SwiftSoup.parse(#"<div class="ClassWithUppercase">Text</div>"#)
+        let elements = try document.getElementsByClass("ClassWithUppercase")
+        XCTAssertEqual(elements.count, 1)
+        XCTAssertEqual(elements.get(0).tagName(), "div")
+    }
 
+
+	static var allTests = {
+		return [
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testGetElementsByTagName", testGetElementsByTagName),
+            ("testGetNamespacedElementsByTag", testGetNamespacedElementsByTag),
+            ("testGetElementById", testGetElementById),
+            ("testGetText", testGetText),
+            ("testGetChildText", testGetChildText),
+            ("testNormalisesText", testNormalisesText),
+            ("testKeepsPreText", testKeepsPreText),
+            ("testKeepsPreTextInCode", testKeepsPreTextInCode),
+            ("testBrHasSpace", testBrHasSpace),
+            ("testGetSiblings", testGetSiblings),
+            ("testGetSiblingsWithDuplicateContent", testGetSiblingsWithDuplicateContent),
+            ("testGetParents", testGetParents),
+            ("testElementSiblingIndex", testElementSiblingIndex),
+            ("testElementSiblingIndexSameContent", testElementSiblingIndexSameContent),
+            ("testGetElementsWithClass", testGetElementsWithClass),
+            ("testGetElementsWithAttribute", testGetElementsWithAttribute),
+            ("testGetElementsWithAttributeDash", testGetElementsWithAttributeDash),
+            ("testGetElementsWithAttributeValue", testGetElementsWithAttributeValue),
+            ("testClassDomMethods", testClassDomMethods),
+            ("testHasClassDomMethods", testHasClassDomMethods),
+            ("testClassUpdates", testClassUpdates),
+            ("testOuterHtml", testOuterHtml),
+            ("testInnerHtml", testInnerHtml),
+            ("testFormatHtml", testFormatHtml),
+            ("testFormatOutline", testFormatOutline),
+            ("testSetIndent", testSetIndent),
+            ("testNotPretty", testNotPretty),
+            ("testEmptyElementFormatHtml", testEmptyElementFormatHtml),
+            ("testNoIndentOnScriptAndStyle", testNoIndentOnScriptAndStyle),
+            ("testContainerOutput", testContainerOutput),
+            ("testSetText", testSetText),
+            ("testAddNewElement", testAddNewElement),
+            ("testAddBooleanAttribute", testAddBooleanAttribute),
+            ("testAppendRowToTable", testAppendRowToTable),
+            ("testPrependRowToTable", testPrependRowToTable),
+            ("testPrependElement", testPrependElement),
+            ("testAddNewText", testAddNewText),
+            ("testPrependText", testPrependText),
+            ("testAddNewHtml", testAddNewHtml),
+            ("testPrependNewHtml", testPrependNewHtml),
+            ("testSetHtml", testSetHtml),
+            ("testSetHtmlTitle", testSetHtmlTitle),
+            ("testWrap", testWrap),
+            ("testBefore", testBefore),
+            ("testAfter", testAfter),
+            ("testWrapWithRemainder", testWrapWithRemainder),
+            ("testHasText", testHasText),
+            ("testDataset", testDataset),
+            ("testpParentlessToString", testpParentlessToString),
+            ("testClone", testClone),
+            ("testClonesClassnames", testClonesClassnames),
+            ("testTagNameSet", testTagNameSet),
+            ("testHtmlContainsOuter", testHtmlContainsOuter),
+            ("testGetTextNodes", testGetTextNodes),
+            ("testManipulateTextNodes", testManipulateTextNodes),
+            ("testGetDataNodes", testGetDataNodes),
+            ("testElementIsNotASiblingOfItself", testElementIsNotASiblingOfItself),
+            ("testChildThrowsIndexOutOfBoundsOnMissing", testChildThrowsIndexOutOfBoundsOnMissing),
+            ("testMoveByAppend", testMoveByAppend),
+            ("testInsertChildrenArgumentValidation", testInsertChildrenArgumentValidation),
+            ("testInsertChildrenAtPosition", testInsertChildrenAtPosition),
+            ("testInsertChildrenAsCopy", testInsertChildrenAsCopy),
+            ("testCssPath", testCssPath),
+            ("testClassNames", testClassNames),
+            ("testHashAndEqualsAndValue", testHashAndEqualsAndValue),
+            ("testRelativeUrls", testRelativeUrls),
+            ("testAppendMustCorrectlyMoveChildrenInsideOneParentElement", testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
+            ("testHashcodeIsStableWithContentChanges", testHashcodeIsStableWithContentChanges),
+            ("testNamespacedElements", testNamespacedElements),
+            ("testChainedRemoveAttributes", testChainedRemoveAttributes),
+            ("testIs", testIs),
+            ("testGetElementsByTagIndexDuplicatesRegression", testGetElementsByTagIndexDuplicatesRegression),
+            ("testGetElementsByTagIndexRegression", testGetElementsByTagIndexRegression),
+            ("testGetElementsByClassNormalizationRegression", testGetElementsByClassNormalizationRegression)
+        ]
+	}()
 }
