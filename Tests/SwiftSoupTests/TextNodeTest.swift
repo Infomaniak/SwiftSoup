@@ -3,22 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 09/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import XCTest
 @testable import SwiftSoup
 
 class TextNodeTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
 	func testBlank() {
 		let one = TextNode("", "")
@@ -34,7 +24,7 @@ class TextNodeTest: XCTestCase {
 		XCTAssertFalse(five.isBlank())
 	}
 
-	func testTextBean()throws {
+	func testTextBean() throws {
 		let doc = try SwiftSoup.parse("<p>One <span>two &amp;</span> three &amp;</p>")
 		let p: Element = try doc.select("p").first()!
 
@@ -54,7 +44,7 @@ class TextNodeTest: XCTestCase {
 		XCTAssertEqual("One <span>two &amp;</span>kablam &amp;", try TextUtil.stripNewlines(p.html()))
 	}
 
-	func testSplitText()throws {
+	func testSplitText() throws {
 		let doc: Document = try SwiftSoup.parse("<div>Hello there</div>")
 		let div: Element = try doc.select("div").first()!
 		let tn: TextNode =  div.childNode(0) as! TextNode
@@ -66,7 +56,7 @@ class TextNodeTest: XCTestCase {
 		XCTAssertTrue(tn.parent() == tail.parent())
 	}
 
-	func testSplitAnEmbolden()throws {
+	func testSplitAnEmbolden() throws {
 		let doc: Document = try SwiftSoup.parse("<div>Hello there</div>")
 		let div: Element = try doc.select("div").first()!
 		let tn: TextNode = div.childNode(0) as! TextNode
@@ -76,22 +66,11 @@ class TextNodeTest: XCTestCase {
 		XCTAssertEqual("Hello <b>there</b>", TextUtil.stripNewlines(try div.html())) // not great that we get \n<b>there there... must correct
 	}
 
-	func testWithSupplementaryCharacter()throws {
+	func testWithSupplementaryCharacter() throws {
 		#if !os(Linux)
 			let doc: Document = try SwiftSoup.parse(String(Character(UnicodeScalar(135361)!)))
 			let t: TextNode = doc.body()!.textNodes()[0]
 			XCTAssertEqual(String(Character(UnicodeScalar(135361)!)), try t.outerHtml().trim())
 		#endif
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testBlank", testBlank),
-			("testTextBean", testTextBean),
-			("testSplitText", testSplitText),
-			("testSplitAnEmbolden", testSplitAnEmbolden),
-			("testWithSupplementaryCharacter", testWithSupplementaryCharacter)
-			]
-	}()
 }

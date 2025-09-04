@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -14,21 +13,26 @@ protocol TokeniserStateProtocol {
 
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
+    public static let nullScalrUTF8 = "\u{0000}".utf8Array
+    public static let nullScalrUTF8Slice = ArraySlice(nullScalrUTF8)
 
-    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
-    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
-    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].flatMap { $0.utf8 })
-    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].flatMap { $0.utf8 })
+    static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeDoubleValueChars = ParsingStrings(["\"", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeNameChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan])
+    static let attributeValueUnquoted = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"])
     
-    static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let dataDefaultStopChars = ParsingStrings([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
+    static let scriptDataDefaultStopChars = ParsingStrings(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
+    static let commentDefaultStopChars = ParsingStrings(["-", TokeniserStateVars.nullScalr])
+    static let readDataDefaultStopChars = ParsingStrings([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
 
 
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
-    static let replacementStr: String = String(Tokeniser.replacementChar)
+    static let replacementStr: [UInt8] = Array(Tokeniser.replacementChar.utf8)
     static let eof: UnicodeScalar = CharacterReader.EOF
+    static let eofUTF8 = String(CharacterReader.EOF).utf8Array
+    @usableFromInline
+    static let eofUTF8Slice = ArraySlice(String(CharacterReader.EOF).utf8Array)
 }
 
 enum TokeniserState: TokeniserStateProtocol {
@@ -100,25 +104,26 @@ enum TokeniserState: TokeniserStateProtocol {
     case BogusDoctype
     case CdataSection
 
+    @inlinable
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
         switch self {
         case .Data:
-            switch (r.current()) {
-            case UnicodeScalar.Ampersand:
+            switch (r.currentUTF8()) {
+            case UTF8ArraySlices.ampersand:
                 t.advanceTransition(.CharacterReferenceInData)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8ArraySlices.tagStart:
                 t.advanceTransition(.TagOpen)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self) // NOT replacement character (oddly?)
                 t.emit(r.consume())
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8Slice:
                 try t.emit(Token.EOF())
                 break
             default:
-                let data: String = r.consumeData()
+                let data: ArraySlice<UInt8> = r.consumeData()
                 t.emit(data)
                 break
             }
@@ -127,23 +132,23 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readCharRef(t, .Data)
             break
         case .Rcdata:
-            switch (r.current()) {
-            case UnicodeScalar.Ampersand:
+            switch (r.currentUTF8()) {
+            case UTF8ArraySlices.ampersand:
                 t.advanceTransition(.CharacterReferenceInRcdata)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8ArraySlices.tagStart:
                 t.advanceTransition(.RcdataLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8Slice:
                 try t.emit(Token.EOF())
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
                 break
             }
@@ -158,13 +163,13 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readData(t, r, self, .ScriptDataLessthanSign)
             break
         case .PLAINTEXT:
-            switch (r.current()) {
-            case TokeniserStateVars.nullScalr:
+            switch (r.currentUTF8()) {
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8Slice:
                 try t.emit(Token.EOF())
                 break
             default:
@@ -175,18 +180,18 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .TagOpen:
             // from < in data
-            switch (r.current()) {
-            case "!":
+            switch r.currentUTF8() {
+            case UTF8ArraySlices.bang:
                 t.advanceTransition(.MarkupDeclarationOpen)
                 break
-            case "/":
+            case UTF8ArraySlices.forwardSlash:
                 t.advanceTransition(.EndTagOpen)
                 break
-            case "?":
+            case UTF8ArraySlices.questionMark:
                 t.advanceTransition(.BogusComment)
                 break
             default:
-                if (r.matchesLetter()) {
+                if r.matchesLetter() {
                     t.createTagPending(true)
                     t.transition(.TagName)
                 } else {
@@ -200,12 +205,12 @@ enum TokeniserState: TokeniserStateProtocol {
         case .EndTagOpen:
             if (r.isEmpty()) {
                 t.eofError(self)
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.Data)
             } else if (r.matchesLetter()) {
                 t.createTagPending(false)
                 t.transition(.TagName)
-            } else if (r.matches(">")) {
+            } else if (r.matches(UTF8Arrays.tagEnd)) {
                 t.error(self)
                 t.advanceTransition(.Data)
             } else {
@@ -217,7 +222,7 @@ enum TokeniserState: TokeniserStateProtocol {
             // from < or </ in data, will have start or end tag pending
             // previous TagOpen state did NOT consume, will have a letter char in current
             //String tagName = r.consumeToAnySorted(tagCharsSorted).toLowerCase()
-            let tagName = r.consumeTagName()
+            let tagName: ArraySlice<UInt8> = r.consumeTagName()
             t.tagPending.appendTagName(tagName)
 
             switch (r.consume()) {
@@ -257,7 +262,7 @@ enum TokeniserState: TokeniserStateProtocol {
             if (r.matches("/")) {
                 t.createTempBuffer()
                 t.advanceTransition(.RCDATAEndTagOpen)
-            } else if (r.matchesLetter() && t.appropriateEndTagName() != nil && !r.containsIgnoreCase("</" + t.appropriateEndTagName()!)) {
+            } else if (r.matchesLetter() && t.appropriateEndTagName() != nil && !r.containsIgnoreCase("</".utf8Array + t.appropriateEndTagName()!)) {
                 // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
                 // consuming to EOF break out here
                 t.tagPending = t.createTagPending(false).name(t.appropriateEndTagName()!)
@@ -272,11 +277,11 @@ enum TokeniserState: TokeniserStateProtocol {
         case .RCDATAEndTagOpen:
             if (r.matchesLetter()) {
                 t.createTagPending(false)
-                t.tagPending.appendTagName(r.current())
-                t.dataBuffer.append(r.current())
+                t.tagPending.appendTagName(r.currentUTF8())
+                t.dataBuffer.append(r.currentUTF8())
                 t.advanceTransition(.RCDATAEndTagName)
             } else {
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.Rcdata)
             }
             break
@@ -289,7 +294,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
 
             func anythingElse(_ t: Tokeniser, _ r: CharacterReader) {
-                t.emit("</" + t.dataBuffer.toString())
+                t.emit(UTF8Arrays.endTagStart + t.dataBuffer.buffer)
                 r.unconsume()
                 t.transition(.Rcdata)
             }
@@ -409,21 +414,21 @@ enum TokeniserState: TokeniserStateProtocol {
                 return
             }
 
-            switch (r.current()) {
-            case "-":
-                t.emit("-")
+            switch (r.currentUTF8()) {
+            case UTF8ArraySlices.hyphen:
+                t.emit(UTF8Arrays.hyphen)
                 t.advanceTransition(.ScriptDataEscapedDash)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8ArraySlices.tagStart:
                 t.advanceTransition(.ScriptDataEscapedLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -485,8 +490,8 @@ enum TokeniserState: TokeniserStateProtocol {
         case .ScriptDataEscapedLessthanSign:
             if (r.matchesLetter()) {
                 t.createTempBuffer()
-                t.dataBuffer.append(r.current())
-                t.emit("<" + String(r.current()))
+                t.dataBuffer.append(r.currentUTF8())
+                t.emit(UTF8Arrays.tagStart + r.currentUTF8())
                 t.advanceTransition(.ScriptDataDoubleEscapeStart)
             } else if (r.matches("/")) {
                 t.createTempBuffer()
@@ -499,11 +504,11 @@ enum TokeniserState: TokeniserStateProtocol {
         case .ScriptDataEscapedEndTagOpen:
             if (r.matchesLetter()) {
                 t.createTagPending(false)
-                t.tagPending.appendTagName(r.current())
-                t.dataBuffer.append(r.current())
+                t.tagPending.appendTagName(r.currentUTF8())
+                t.dataBuffer.append(r.currentUTF8())
                 t.advanceTransition(.ScriptDataEscapedEndTagName)
             } else {
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.ScriptDataEscaped)
             }
             break
@@ -514,27 +519,27 @@ enum TokeniserState: TokeniserStateProtocol {
             TokeniserState.handleDataDoubleEscapeTag(t, r, .ScriptDataDoubleEscaped, .ScriptDataEscaped)
             break
         case .ScriptDataDoubleEscaped:
-            let c = r.current()
+            let c = r.currentUTF8()
             switch (c) {
-            case "-":
+            case UTF8ArraySlices.hyphen:
                 t.emit(c)
                 t.advanceTransition(.ScriptDataDoubleEscapedDash)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8ArraySlices.tagStart:
                 t.emit(c)
                 t.advanceTransition(.ScriptDataDoubleEscapedLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8Slice:
                 t.eofError(self)
                 t.transition(.Data)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -639,7 +644,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeName:
-            let name = r.consumeToAnySorted(TokeniserStateVars.attributeNameChars)
+            let name: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeNameChars)
             t.tagPending.appendAttributeName(name)
 
             let c = r.consume()
@@ -770,11 +775,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_doubleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
-            if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
             } else {
-            t.tagPending.setEmptyAttributeValue()
+                t.tagPending.setEmptyAttributeValue()
             }
 
             let c = r.consume()
@@ -804,11 +809,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_singleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
-            if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
             } else {
-            t.tagPending.setEmptyAttributeValue()
+                t.tagPending.setEmptyAttributeValue()
             }
 
             let c = r.consume()
@@ -838,9 +843,9 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_unquoted:
-            let value = r.consumeToAnySorted(TokeniserStateVars.attributeValueUnquoted)
-            if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeValueUnquoted)
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
             }
 
             let c = r.consume()
@@ -850,9 +855,9 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             case UnicodeScalar.Ampersand:
                 if let ref = try t.consumeCharacterReference(">", true) {
-                t.tagPending.appendAttributeValue(ref)
+                    t.tagPending.appendAttributeValue(ref)
                 } else {
-                t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
+                    t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                 }
                 break
             case ">":
@@ -930,12 +935,12 @@ enum TokeniserState: TokeniserStateProtocol {
             t.advanceTransition(.Data)
             break
         case .MarkupDeclarationOpen:
-            if (r.matchConsume("--")) {
+            if (r.matchConsume("--".utf8Array)) {
                 t.createCommentPending()
                 t.transition(.CommentStart)
-            } else if (r.matchConsumeIgnoreCase("DOCTYPE")) {
+            } else if (r.matchConsumeIgnoreCase("DOCTYPE".utf8Array)) {
                 t.transition(.Doctype)
-            } else if (r.matchConsume("[CDATA[")) {
+            } else if (r.matchConsume("[CDATA[".utf8Array)) {
                 // todo: should actually check current namepspace, and only non-html allows cdata. until namespace
                 // is implemented properly, keep handling as cdata
                 //} else if (!t.currentNodeInHtmlNS() && r.matchConsume("[CDATA[")) {
@@ -998,23 +1003,24 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .Comment:
-            let c = r.current()
+            let c = r.currentUTF8()
             switch (c) {
-            case "-":
+            case UTF8ArraySlices.hyphen:
                 t.advanceTransition(.CommentEndDash)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8Slice:
                 t.error(self)
                 r.advance()
                 t.commentPending.data.append(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8Slice:
                 t.eofError(self)
                 try t.emitCommentPending()
                 t.transition(.Data)
                 break
             default:
-                t.commentPending.data.append(r.consumeToAny(TokeniserStateVars.commentDefaultStopChars))
+                let value: ArraySlice<UInt8>  = r.consumeToAny(TokeniserStateVars.commentDefaultStopChars)
+                t.commentPending.data.append(value)
             }
             break
         case .CommentEndDash:
@@ -1535,9 +1541,9 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .CdataSection:
-            let data = r.consumeTo("]]>")
+            let data = r.consumeTo("]]>".utf8Array)
             t.emit(data)
-            r.matchConsume("]]>")
+            r.matchConsume("]]>".utf8Array)
             t.transition(.Data)
             break
         }
@@ -1550,7 +1556,7 @@ enum TokeniserState: TokeniserStateProtocol {
      */
     private static func handleDataEndTag(_ t: Tokeniser, _ r: CharacterReader, _ elseTransition: TokeniserState)throws {
         if (r.matchesLetter()) {
-            let name = r.consumeLetterSequence()
+            let name: ArraySlice<UInt8> = r.consumeLetterSequence()
             t.tagPending.appendTagName(name)
             t.dataBuffer.append(name)
             return
@@ -1579,26 +1585,26 @@ enum TokeniserState: TokeniserStateProtocol {
         }
 
         if (needsExitTransition) {
-            t.emit("</" + t.dataBuffer.toString())
+            t.emit(UTF8Arrays.endTagStart + t.dataBuffer.buffer)
             t.transition(elseTransition)
         }
     }
 
     private static func readData(_ t: Tokeniser, _ r: CharacterReader, _ current: TokeniserState, _ advance: TokeniserState)throws {
-        switch (r.current()) {
-        case UnicodeScalar.LessThan:
+        switch (r.currentUTF8()) {
+        case UTF8ArraySlices.tagStart:
             t.advanceTransition(advance)
             break
-        case TokeniserStateVars.nullScalr:
+        case TokeniserStateVars.nullScalrUTF8Slice:
             t.error(current)
             r.advance()
             t.emit(TokeniserStateVars.replacementChar)
             break
-        case TokeniserStateVars.eof:
+        case TokeniserStateVars.eofUTF8Slice:
             try t.emit(Token.EOF())
             break
         default:
-            let data = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
+            let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
             t.emit(data)
             break
         }
@@ -1619,7 +1625,7 @@ enum TokeniserState: TokeniserStateProtocol {
             t.createTagPending(false)
             t.transition(a)
         } else {
-            t.emit("</")
+            t.emit(UTF8Arrays.endTagStart)
             t.transition(b)
         }
     }
@@ -1635,7 +1641,7 @@ enum TokeniserState: TokeniserStateProtocol {
         let c = r.consume()
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
-            if (t.dataBuffer.toString() == "script") {
+            if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
             t.transition(primary)
             } else {
             t.transition(fallback)

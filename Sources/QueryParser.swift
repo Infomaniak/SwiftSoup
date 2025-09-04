@@ -3,10 +3,11 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 23/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
+import Atomics
+
 
 /**
  * Parses a CSS selector into an Evaluator tree.
@@ -14,33 +15,53 @@ import Foundation
 public class QueryParser {
     private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
-
+    
+    /// Atomic reference to the query parser cache. This allows for thread-safe manipulation of the
+    /// cache while avoiding locks.
+    private static let atomicCacheReference = ManagedAtomic<AtomicCacheWrapper?>(
+        AtomicCacheWrapper(cache: DefaultCache())
+    )
+    
     private var tq: TokenQueue
     private var query: String
     private var evals: Array<Evaluator>  = Array<Evaluator>()
-
+    
+    
+    // MARK: Initializer
+    
     /**
-     * Create a new QueryParser.
-     * @param query CSS query
+     Create a new QueryParser.
+     - parameter query: CSS query
      */
     private init(_ query: String) {
         self.query = query
         self.tq = TokenQueue(query)
     }
+    
+    
+    // MARK: Public methods
 
     /**
-     * Parse a CSS query into an Evaluator.
-     * @param query CSS query
-     * @return Evaluator
+     Parse a CSS query into an Evaluator.
+     - parameter query: CSS query
+     - returns: ``Evaluator``
+     - seealso: ``cache``
      */
     public static func parse(_ query: String)throws->Evaluator {
+        let cache = Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
+        if let cached = cache?.get(query) {
+            return cached
+        }
+        
         let p = QueryParser(query)
-        return try p.parse()
+        let eval = try p.parse()
+        cache?.set(query, eval)
+        return eval
     }
 
     /**
-     * Parse the query
-     * @return Evaluator
+     Parse the query
+     - returns: ``Evaluator``
      */
     public func parse()throws->Evaluator {
         tq.consumeWhitespace()
@@ -70,6 +91,27 @@ public class QueryParser {
         }
         return CombiningEvaluator.And(evals)
     }
+    
+    
+    /// Cache to use for the query parser.
+    ///
+    /// Defaults to ``DefaultCache``. You can set this to `nil` to disable caching, provide a
+    /// ``DefaultCache`` instance with a different limit, or provide your own cache.
+    public static var cache: (any QueryParserCache)? {
+        get {
+            Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
+        }
+        set {
+            if let newValue {
+                Self.atomicCacheReference.store(AtomicCacheWrapper(cache: newValue), ordering: .relaxed)
+            } else {
+                Self.atomicCacheReference.store(nil, ordering: .relaxed)
+            }
+        }
+    }
+    
+    
+    // MARK: Private methods
 
     private func combinator(_ combinator: Character)throws {
         tq.consumeWhitespace()
@@ -138,7 +180,7 @@ public class QueryParser {
         return sq
     }
 
-    private func findElements()throws {
+    private func findElements() throws {
         if (tq.matchChomp("#")) {
             try byId()
         } else if (tq.matchChomp(".")) {
@@ -148,19 +190,19 @@ public class QueryParser {
         }
     }
 
-    private func byId()throws {
+    private func byId() throws {
         let id: String = tq.consumeCssIdentifier()
         try Validate.notEmpty(string: id)
         evals.append(Evaluator.Id(id))
     }
 
-    private func byClass()throws {
+    private func byClass() throws {
         let className: String = tq.consumeCssIdentifier()
         try Validate.notEmpty(string: className)
         evals.append(Evaluator.Class(className.trim()))
     }
 
-    private func byTag()throws {
+    private func byTag() throws {
         var tagName = tq.consumeElementSelector()
 
         try Validate.notEmpty(string: tagName)
@@ -181,7 +223,7 @@ public class QueryParser {
         }
     }
 
-    private func byAttribute()throws {
+    private func byAttribute() throws {
         let cq: TokenQueue = TokenQueue(tq.chompBalanced("[", "]")) // content queue
         let key: String = cq.consumeToAny(QueryParser.AttributeEvals) // eq, not, start, end, contain, match, (no val)
         try Validate.notEmpty(string: key)
@@ -189,7 +231,7 @@ public class QueryParser {
 
         if (cq.isEmpty()) {
             if (key.startsWith("^")) {
-                evals.append(try Evaluator.AttributeStarting(key.substring(1)))
+                evals.append(try Evaluator.AttributeStarting(key.substring(1).utf8Array))
             } else {
                 evals.append(Evaluator.Attribute(key))
             }
@@ -217,15 +259,15 @@ public class QueryParser {
     }
 
     // pseudo selectors :lt, :gt, :eq
-    private func indexLessThan()throws {
+    private func indexLessThan() throws {
         evals.append(Evaluator.IndexLessThan(try consumeIndex()))
     }
 
-    private func indexGreaterThan()throws {
+    private func indexGreaterThan() throws {
         evals.append(Evaluator.IndexGreaterThan(try consumeIndex()))
     }
 
-    private func indexEquals()throws {
+    private func indexEquals() throws {
         evals.append(Evaluator.IndexEquals(try consumeIndex()))
     }
 
@@ -245,11 +287,11 @@ public class QueryParser {
         } else if ("even"==argS) {
             a = 2
             b = 0
-        } else if (mAB.matches.count > 0) {
+        } else if (!mAB.matches.isEmpty) {
 			mAB.find()
             a = mAB.group(3) != nil ? Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: ""))! : 1
             b = mAB.group(4) != nil ? Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: ""))! : 0
-        } else if (mB.matches.count > 0) {
+        } else if (!mB.matches.isEmpty) {
             a = 0
 			mB.find()
             b = Int(mB.group()!.replaceFirst(of: "^\\+", with: ""))!
@@ -278,7 +320,7 @@ public class QueryParser {
     }
 
     // pseudo selector :has(el)
-    private func has()throws {
+    private func has() throws {
         try tq.consume(":has")
         let subQuery: String = tq.chompBalanced("(", ")")
         try Validate.notEmpty(string: subQuery, msg: ":has(el) subselect must not be empty")
@@ -311,7 +353,7 @@ public class QueryParser {
     }
 
     // :not(selector)
-    private func not()throws {
+    private func not() throws {
         try tq.consume(":not")
         let subQuery: String = tq.chompBalanced("(", ")")
         try Validate.notEmpty(string: subQuery, msg: ":not(selector) subselect must not be empty")

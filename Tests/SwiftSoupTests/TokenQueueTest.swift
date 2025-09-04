@@ -3,22 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 13/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
 import SwiftSoup
 
 class TokenQueueTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
     func testChompBalanced() {
         let tq = TokenQueue(":contains(one (two) three) four")
@@ -71,17 +61,5 @@ class TokenQueueTest: XCTestCase {
         tq.addFirst("Three")
         XCTAssertEqual("Three Two", tq.remainder())
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testChompBalanced", testChompBalanced),
-			("testChompEscapedBalanced", testChompEscapedBalanced),
-			("testChompBalancedMatchesAsMuchAsPossible", testChompBalancedMatchesAsMuchAsPossible),
-			("testUnescape", testUnescape),
-			("testChompToIgnoreCase", testChompToIgnoreCase),
-			("testAddFirst", testAddFirst)
-			]
-	}()
 
 }

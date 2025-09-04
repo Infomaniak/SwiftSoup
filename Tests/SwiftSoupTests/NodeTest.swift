@@ -3,22 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 17/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
 import SwiftSoup
 
 class NodeTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
 	func testHandlesBaseUri() {
 		do {
@@ -378,32 +368,4 @@ class NodeTest: XCTestCase {
 			XCTAssertEqual(1, 2)
 		}
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHandlesBaseUri", testHandlesBaseUri),
-			("testSetBaseUriIsRecursive", testSetBaseUriIsRecursive),
-			("testHandlesAbsPrefix", testHandlesAbsPrefix),
-			("testHandlesAbsOnImage", testHandlesAbsOnImage),
-			("testHandlesAbsPrefixOnHasAttr", testHandlesAbsPrefixOnHasAttr),
-			("testLiteralAbsPrefix", testLiteralAbsPrefix),
-			("testHandleAbsOnLocalhostFileUris", testHandleAbsOnLocalhostFileUris),
-			 ("testHandlesAbsOnProtocolessAbsoluteUris", testHandlesAbsOnProtocolessAbsoluteUris),
-			 ("testAbsHandlesRelativeQuery", testAbsHandlesRelativeQuery),
-			 ("testAbsHandlesDotFromIndex", testAbsHandlesDotFromIndex),
-			 ("testRemove", testRemove),
-			 ("testReplace", testReplace),
-			 ("testOwnerDocument", testOwnerDocument),
-			 ("testBefore", testBefore),
-			 ("testAfter", testAfter),
-			 ("testUnwrap", testUnwrap),
-			 ("testUnwrapNoChildren", testUnwrapNoChildren),
-			 ("testTraverse", testTraverse),
-			 ("testOrphanNodeReturnsNullForSiblingElements", testOrphanNodeReturnsNullForSiblingElements),
-			 ("testNodeIsNotASiblingOfItself", testNodeIsNotASiblingOfItself),
-			 ("testChildNodesCopy", testChildNodesCopy),
-			 ("testSupportsClone", testSupportsClone)
-		]
-	}()
 }

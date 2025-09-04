@@ -3,22 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 29/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
 import SwiftSoup
 
 class AttributesTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
     func testHtml() {
 		let a: Attributes = Attributes()
@@ -86,13 +76,4 @@ class AttributesTest: XCTestCase {
 		let iterator = a.makeIterator()
 		XCTAssertNil(iterator.next())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHtml", testHtml),
-			("testIterator", testIterator),
-			("testIteratorEmpty", testIteratorEmpty)
-		]
-	}()
 }

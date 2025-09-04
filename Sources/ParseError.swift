@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 19/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -22,7 +21,7 @@ open class ParseError {
 
     /**
      * Retrieve the error message.
-     * @return the error message.
+     * - returns: the error message.
      */
     open func getErrorMessage() -> String {
         return errorMsg
@@ -30,7 +29,7 @@ open class ParseError {
 
     /**
      * Retrieves the offset of the error.
-     * @return error offset within input
+     * - returns: error offset within input
      */
     open func getPosition() -> Int {
     return pos

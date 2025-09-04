@@ -3,23 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
 import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -60,6 +49,14 @@ class CharacterReaderTest: XCTestCase {
         // XCTAssertTrue(r.isEmpty())
         // XCTAssertEqual(CharacterReader.EOF, r.current())
     }
+    
+    func testMultibyteUnconsume() {
+        let r = CharacterReader("π>")
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual(">", r.current())
+        r.unconsume()
+        XCTAssertEqual("π", r.current())
+    }
 
     func testMark() {
         let r = CharacterReader("one")
@@ -86,7 +83,7 @@ class CharacterReaderTest: XCTestCase {
 
         XCTAssertEqual(nil, r.nextIndexOf("x"))
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 3), r.nextIndexOf("h"))
-        let pull = r.consumeTo("h")
+        let pull = String(decoding: r.consumeTo("h"), as: UTF8.self)
         XCTAssertEqual("bla", pull)
         XCTAssertEqual("h", r.consume())
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 6), r.nextIndexOf("l"))
@@ -139,28 +136,34 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One 二 &bar; qux 三")
-        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One 二 ", r.consumeToAny(ParsingStrings(["&", ";"])))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
-        XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("bar", r.consumeToAny(ParsingStrings(["&", ";"])))
+        XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
+        XCTAssertEqual(" qux 三", r.consumeToAny(ParsingStrings(["&", ";"])))
+    }
+    
+    func testConsumeToAnyMultibyte() {
+        let r = CharacterReader("若い\"")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["\"", UnicodeScalar.Ampersand, "\u{0000}"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "若い")
     }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One", r.consumeLetterSequence())
+        XCTAssertEqual("One", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
         XCTAssertEqual(" &", r.consumeTo("bar;"))
-        XCTAssertEqual("bar", r.consumeLetterSequence())
-        XCTAssertEqual("; qux", r.consumeToEnd())
+        XCTAssertEqual("bar", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+       XCTAssertEqual("; qux", r.consumeToEnd())
     }
 
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
-        XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("One12", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" ", r.consume())
-        XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("Two", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
 
@@ -208,7 +211,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One", r.consumeToAny(ParsingStrings([" ", "\n", "\t"])))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
@@ -298,31 +301,17 @@ class CharacterReaderTest: XCTestCase {
         _ = try SwiftSoup.parse(html)
     }
 
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testConsume", testConsume),
-			("testUnconsume", testUnconsume),
-			("testMark", testMark),
-			("testConsumeToEnd", testConsumeToEnd),
-			("testNextIndexOfChar", testNextIndexOfChar),
-			("testNextIndexOfString", testNextIndexOfString),
-			("testNextIndexOfUnmatched", testNextIndexOfUnmatched),
-			("testConsumeToChar", testConsumeToChar),
-			("testConsumeToString", testConsumeToString),
-			("testAdvance", testAdvance),
-			("testConsumeToAny", testConsumeToAny),
-			("testConsumeLetterSequence", testConsumeLetterSequence),
-			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
-			("testMatches", testMatches),
-			("testMatchesIgnoreCase", testMatchesIgnoreCase),
-			("testContainsIgnoreCase", testContainsIgnoreCase),
-			("testMatchesAny", testMatchesAny),
-			("testCachesStrings", testCachesStrings),
-			("testRangeEquals", testRangeEquals),
-            ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
-            ("testURLCrashRegression", testURLCrashRegression),
-        ]
-	}()
-
+    func testMultibyteConsume() throws {
+        let r = CharacterReader("-本文-")
+        XCTAssertEqual(0, r.getPos())
+        XCTAssertEqual("-", r.consume())
+        XCTAssertEqual(1, r.getPos())
+        XCTAssertEqual("本", r.current())
+        XCTAssertEqual("本", r.consume())
+        XCTAssertEqual(4, r.getPos())
+        XCTAssertEqual("文", r.current())
+        XCTAssertEqual("文", r.consume())
+        XCTAssertEqual(7, r.getPos())
+        XCTAssertEqual("-", r.consume())
+    }
 }

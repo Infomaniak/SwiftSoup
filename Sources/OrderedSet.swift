@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 import Foundation
 
@@ -343,7 +342,7 @@ extension OrderedSet {
 	}
 
 	public var isEmpty: Bool {
-		return count == 0
+		return contents.isEmpty
 	}
 
 	public var first: T? {

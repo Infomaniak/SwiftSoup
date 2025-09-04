@@ -3,139 +3,256 @@
  Based on https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
  */
 open class StringBuilder {
-    fileprivate var buffer: [String] = []
-
+    private var internalBuffer: [UInt8] = []
+    
+    /// Number of bytes currently used in buffer
+    private var size: Int = 0
+    
+    /// Read-only view of the active buffer contents
+    @inline(__always)
+    public var buffer: ArraySlice<UInt8> {
+        return internalBuffer[0..<size]
+    }
+    
     /**
      Construct with initial String contents
      
-     :param: string Initial value; defaults to empty string
+     - parameter string: Initial value; defaults to empty string
      */
-    public init(string: String = "") {
-        if string != "" {
-            buffer.append(string)
+    @inline(__always)
+    public init(string: String? = nil) {
+        if let string, !string.isEmpty {
+            internalBuffer.append(contentsOf: string.utf8)
+            size = internalBuffer.count
         }
+        internalBuffer.reserveCapacity(1024)
     }
-
-    public init(_ size: Int) {
-        self.buffer = Array()
+    
+    @inline(__always)
+    public init(_ capacity: Int) {
+        internalBuffer = []
+        internalBuffer.reserveCapacity(capacity)
     }
-
+    
     /**
      Return the String object
      
-     :return: String
+     - returns: String
      */
+    @inline(__always)
     open func toString() -> String {
-        return buffer.joined()
+        return String(decoding: internalBuffer[0..<size], as: UTF8.self)
     }
-
+    
     /**
      Return the current length of the String object
      */
-    open var xlength: Int {
-        return buffer.map { $0.count }.reduce(0, +)
+    @inline(__always)
+    open var length: Int {
+        return size
     }
     
+    @inline(__always)
     open var isEmpty: Bool {
-        return buffer.isEmpty
+        return size == 0
     }
-
+    
     /**
      Append a String to the object
      
-     :param: string String
+     - parameter string: String
      
-     :return: reference to this StringBuilder instance
+     - returns: reference to this StringBuilder instance
      */
-    open func append(_ string: String) {
-        buffer.append(string)
+    @discardableResult
+    @inline(__always)
+    open func append(_ string: String) -> StringBuilder {
+        let bytes = string.utf8
+        write(contentsOf: bytes)
+        return self
     }
-
-    open func appendCodePoint(_ chr: Character) {
-        buffer.append(String(chr))
+    
+    @inline(__always)
+    open func append(_ chr: Character) {
+        append(String(chr))
     }
-
+    
+    @inline(__always)
     open func appendCodePoints(_ chr: [Character]) {
-        buffer.append(String(chr))
+        append(String(chr))
     }
-
+    
+    @inline(__always)
     open func appendCodePoint(_ ch: Int) {
-        buffer.append(String(UnicodeScalar(ch)!))
+        appendCodePoint(UnicodeScalar(ch)!)
     }
-
+    
+    @inline(__always)
     open func appendCodePoint(_ ch: UnicodeScalar) {
-        buffer.append(String(ch))
+        let val = ch.value
+        if val < 0x80 {
+            // 1-byte ASCII
+            write(UInt8(val))
+        } else if val < 0x800 {
+            // 2-byte sequence
+            write(contentsOf: [
+                UInt8(0xC0 | (val >> 6)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        } else if val < 0x10000 {
+            // 3-byte sequence
+            write(contentsOf: [
+                UInt8(0xE0 | (val >> 12)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        } else {
+            // 4-byte sequence
+            write(contentsOf: [
+                UInt8(0xF0 | (val >> 18)),
+                UInt8(0x80 | ((val >> 12) & 0x3F)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        }
     }
-
+    
+    @inline(__always)
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
-        buffer.append(String(String.UnicodeScalarView(chr)))
+        for chr in chr {
+            appendCodePoint(chr)
+        }
     }
-
+    
     /**
      Append a Printable to the object
      
-     :param: value a value supporting the Printable protocol
+     - parameter value: a value supporting the Printable protocol
      
-     :return: reference to this StringBuilder instance
+     - returns: reference to this StringBuilder instance
      */
+    //    @discardableResult
+    //    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
+    //        append(value.description)
+    //        return self
+    //    }
+    
     @discardableResult
-    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        buffer.append(value.description)
+    @inline(__always)
+    open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
+        write(contentsOf: value)
         return self
     }
-
+    
     @discardableResult
+    @inline(__always)
+    open func append(_ value: [UInt8]) -> StringBuilder {
+        write(contentsOf: value)
+        return self
+    }
+    
+    @discardableResult
+    @inline(__always)
+    open func append(_ value: UInt8) -> StringBuilder {
+        write(value)
+        return self
+    }
+    
+    @discardableResult
+    @inline(__always)
     open func append(_ value: UnicodeScalar) -> StringBuilder {
-        buffer.append(value.description)
+        appendCodePoint(value)
         return self
     }
-
+    
     /**
      Append a String and a newline to the object
      
-     :param: string String
+     - parameter string: String
      
-     :return: reference to this StringBuilder instance
+     - returns: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine(_ string: String) -> StringBuilder {
-        buffer.append(string)
-        buffer.append("\n")
+        append(string)
+        append("\n")
         return self
     }
-
+    
     /**
      Append a Printable and a newline to the object
      
-     :param: value a value supporting the Printable protocol
+     - parameter value: a value supporting the Printable protocol
      
-     :return: reference to this StringBuilder instance
+     - returns: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        buffer.append(value.description)
-        buffer.append("\n")
+        append(value.description)
+        append("\n")
         return self
     }
-
+    
     /**
      Reset the object to an empty string
      
-     :return: reference to this StringBuilder instance
+     - returns: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func clear() -> StringBuilder {
-        buffer.removeAll(keepingCapacity: true)
+        size = 0
         return self
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(_ byte: UInt8) {
+        if size < internalBuffer.count {
+            internalBuffer[size] = byte
+        } else {
+            internalBuffer.append(byte)
+        }
+        size += 1
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: [UInt8]) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: String.UTF8View) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: ArraySlice<UInt8>) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
     }
 }
 
 /**
  Append a String to a StringBuilder using operator syntax
  
- :param: lhs StringBuilder
- :param: rhs String
+ - parameter lhs: StringBuilder
+ - parameter rhs: String
  */
+@inline(__always)
 public func += (lhs: StringBuilder, rhs: String) {
     lhs.append(rhs)
 }
@@ -143,9 +260,10 @@ public func += (lhs: StringBuilder, rhs: String) {
 /**
  Append a Printable to a StringBuilder using operator syntax
  
- :param: lhs Printable
- :param: rhs String
+ - parameter lhs: Printable
+ - parameter rhs: String
  */
+@inline(__always)
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
     lhs.append(rhs.description)
 }
@@ -153,11 +271,12 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
 /**
  Create a StringBuilder by concatenating the values of two StringBuilders
  
- :param: lhs first StringBuilder
- :param: rhs second StringBuilder
+ - parameter lhs: first StringBuilder
+ - parameter rhs: second StringBuilder
  
- :result StringBuilder
+ - returns: StringBuilder
  */
+@inline(__always)
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }

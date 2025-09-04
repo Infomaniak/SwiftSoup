@@ -3,24 +3,20 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 22/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-/**
- * Evaluates that an element matches the selector.
- */
-open class Evaluator {
+/// Evaluates that an element matches the selector.
+open class Evaluator: @unchecked Sendable {
     public init () {}
 
     /**
-     * Test if the element meets the evaluator's requirements.
-     *
-     * @param root    Root of the matching subtree
-     * @param element tested element
-     * @return Returns <tt>true</tt> if the requirements are met or
-     * <tt>false</tt> otherwise
+     Test if the element meets the evaluator's requirements.
+     
+     - parameter root:    Root of the matching subtree
+     - parameter element: tested element
+     - returns: Returns `true` if the requirements are met or `false` otherwise.
      */
     open func matches(_ root: Element, _ element: Element)throws->Bool {
         preconditionFailure("self method must be overridden")
@@ -33,28 +29,35 @@ open class Evaluator {
     /**
      * Evaluator for tag name
      */
-    public class Tag: Evaluator {
-        private let tagName: String
-        private let tagNameNormal: String
+    public class Tag: Evaluator, @unchecked Sendable {
+        private let tagName: [UInt8]
+        public let tagNameNormal: [UInt8]
 
         public init(_ tagName: String) {
+            let utf8TagName = tagName.utf8Array
+            self.tagName = utf8TagName
+            self.tagNameNormal = utf8TagName.lowercased()
+        }
+        
+        public init(_ tagName: [UInt8]) {
             self.tagName = tagName
             self.tagNameNormal = tagName.lowercased()
         }
 
-        open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return element.tagNameNormal() == tagNameNormal
+        @inlinable
+        open override func matches(_ root: Element, _ element: Element) throws -> Bool {
+            return element.tagNameNormalUTF8() == tagNameNormal
         }
 
         open override func toString() -> String {
-            return String(tagName)
+            return String(decoding: tagName, as: UTF8.self)
         }
     }
 
     /**
-     * Evaluator for tag name that ends with
+     * Evaluator for tag name that ends with the given suffix.
      */
-    public final class TagEndsWith: Evaluator {
+    public final class TagEndsWith: Evaluator, @unchecked Sendable {
         private let tagName: String
 
         public init(_ tagName: String) {
@@ -73,7 +76,7 @@ open class Evaluator {
     /**
      * Evaluator for element id
      */
-    public final class Id: Evaluator {
+    public final class Id: Evaluator, @unchecked Sendable {
         private let id: String
 
         public init(_ id: String) {
@@ -93,7 +96,7 @@ open class Evaluator {
     /**
      * Evaluator for element class
      */
-    public final class Class: Evaluator {
+    public final class Class: Evaluator, @unchecked Sendable {
         private let className: String
 
         public init(_ className: String) {
@@ -113,7 +116,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name matching
      */
-    public final class Attribute: Evaluator {
+    public final class Attribute: Evaluator, @unchecked Sendable {
         private let key: String
 
         public init(_ key: String) {
@@ -133,17 +136,17 @@ open class Evaluator {
     /**
      * Evaluator for attribute name prefix matching
      */
-    public final class AttributeStarting: Evaluator {
-        private let keyPrefix: String
+    public final class AttributeStarting: Evaluator, @unchecked Sendable {
+        private let keyPrefix: [UInt8]
 
-        public init(_ keyPrefix: String)throws {
+        public init(_ keyPrefix: [UInt8]) throws {
             try Validate.notEmpty(string: keyPrefix)
             self.keyPrefix = keyPrefix.lowercased()
         }
 
-        public override func matches(_ root: Element, _ element: Element)throws->Bool {
+        public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
-                for attribute in values where attribute.getKey().lowercased().hasPrefix(keyPrefix) {
+                for attribute in values where attribute.getKeyUTF8().lowercased().hasPrefix(keyPrefix) {
                     return true
                 }
             }
@@ -151,7 +154,7 @@ open class Evaluator {
         }
 
         public override func toString() -> String {
-            return "[^\(keyPrefix)]"
+            return "[^\(String(decoding: keyPrefix, as: UTF8.self))]"
         }
 
     }
@@ -159,7 +162,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name/value matching
      */
-    public final class AttributeWithValue: AttributeKeyPair {
+    public final class AttributeWithValue: AttributeKeyPair, @unchecked Sendable {
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -181,7 +184,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name != value matching
      */
-    public final class AttributeWithValueNot: AttributeKeyPair {
+    public final class AttributeWithValueNot: AttributeKeyPair, @unchecked Sendable {
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -200,7 +203,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name/value matching (value prefix)
      */
-    public final class AttributeWithValueStarting: AttributeKeyPair {
+    public final class AttributeWithValueStarting: AttributeKeyPair, @unchecked Sendable {
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -221,7 +224,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name/value matching (value ending)
      */
-    public final class AttributeWithValueEnding: AttributeKeyPair {
+    public final class AttributeWithValueEnding: AttributeKeyPair, @unchecked Sendable {
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -242,7 +245,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name/value matching (value containing)
      */
-    public final class AttributeWithValueContaining: AttributeKeyPair {
+    public final class AttributeWithValueContaining: AttributeKeyPair, @unchecked Sendable {
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -263,7 +266,7 @@ open class Evaluator {
     /**
      * Evaluator for attribute name/value matching (value regex matching)
      */
-    public final class AttributeWithValueMatching: Evaluator {
+    public final class AttributeWithValueMatching: Evaluator, @unchecked Sendable {
         let key: String
         let pattern: Pattern
 
@@ -290,9 +293,9 @@ open class Evaluator {
     /**
      * Abstract evaluator for attribute name/value matching
      */
-    public class AttributeKeyPair: Evaluator {
+    public class AttributeKeyPair: Evaluator, @unchecked Sendable {
         let key: String
-        var value: String
+        let value: String
 
         public init(_ key: String, _ value2: String)throws {
             var value2 = value2
@@ -314,7 +317,7 @@ open class Evaluator {
     /**
      * Evaluator for any / all element matching
      */
-    public final class AllElements: Evaluator {
+    public final class AllElements: Evaluator, @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             return true
@@ -326,9 +329,9 @@ open class Evaluator {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e {@literal <} idx)
+     * Evaluator for matching by sibling index number (`e < idx`).
      */
-    public final class IndexLessThan: IndexEvaluator {
+    public final class IndexLessThan: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
             super.init(index)
         }
@@ -344,9 +347,9 @@ open class Evaluator {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e {@literal >} idx)
+     * Evaluator for matching by sibling index number (`e > idx`).
      */
-    public final class IndexGreaterThan: IndexEvaluator {
+    public final class IndexGreaterThan: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
             super.init(index)
         }
@@ -362,9 +365,9 @@ open class Evaluator {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e = idx)
+     * Evaluator for matching by sibling index number (`e == idx`)
      */
-    public final class IndexEquals: IndexEvaluator {
+    public final class IndexEquals: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
             super.init(index)
         }
@@ -380,14 +383,12 @@ open class Evaluator {
     }
 
     /**
-     * Evaluator for matching the last sibling (css :last-child)
+     * Evaluator for matching the last sibling (CSS `:last-child`)
      */
-    public final class IsLastChild: Evaluator {
+    public final class IsLastChild: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-
-            if let parent = element.parent() {
-                let index = try element.elementSiblingIndex()
-                return !(parent is Document) && index == (parent.getChildNodes().count - 1)
+            if let parent = element.parent(), !(parent is Document), element !== root {
+                return (try element.nextElementSibling()) == nil
             }
             return false
         }
@@ -397,7 +398,7 @@ open class Evaluator {
         }
     }
 
-    public final class IsFirstOfType: IsNthOfType {
+    public final class IsFirstOfType: IsNthOfType, @unchecked Sendable {
         public init() {
             super.init(0, 1)
         }
@@ -406,7 +407,7 @@ open class Evaluator {
         }
     }
 
-    public final class IsLastOfType: IsNthLastOfType {
+    public final class IsLastOfType: IsNthLastOfType, @unchecked Sendable {
         public init() {
             super.init(0, 1)
         }
@@ -415,7 +416,7 @@ open class Evaluator {
         }
     }
 
-    public class CssNthEvaluator: Evaluator {
+    public class CssNthEvaluator: Evaluator, @unchecked Sendable {
         public let a: Int
         public let b: Int
 
@@ -457,11 +458,11 @@ open class Evaluator {
     }
 
     /**
-     * css-compatible Evaluator for :eq (css :nth-child)
-     *
-     * @see IndexEquals
+     CSS-compatible Evaluator for `:eq` (CSS `:nth-child`)
+     
+     - seealso: ``IndexEquals``
      */
-    public final class IsNthChild: CssNthEvaluator {
+    public final class IsNthChild: CssNthEvaluator, @unchecked Sendable {
 
         public override init(_ a: Int, _ b: Int) {
             super.init(a, b)
@@ -477,11 +478,11 @@ open class Evaluator {
     }
 
     /**
-     * css pseudo class :nth-last-child)
-     *
-     * @see IndexEquals
+     CSS pseudo class `:nth-last-child`
+     
+     - seealso: ``IndexEquals``
      */
-    public final class IsNthLastChild: CssNthEvaluator {
+    public final class IsNthLastChild: CssNthEvaluator, @unchecked Sendable {
         public override init(_ a: Int, _ b: Int) {
             super.init(a, b)
         }
@@ -501,10 +502,9 @@ open class Evaluator {
     }
 
     /**
-     * css pseudo class nth-of-type
-     *
+     CSS pseudo class `:nth-of-type`
      */
-    public class IsNthOfType: CssNthEvaluator {
+    public class IsNthOfType: CssNthEvaluator, @unchecked Sendable {
         public override init(_ a: Int, _ b: Int) {
             super.init(a, b)
         }
@@ -527,7 +527,7 @@ open class Evaluator {
         }
     }
 
-    public class IsNthLastOfType: CssNthEvaluator {
+    public class IsNthLastOfType: CssNthEvaluator, @unchecked Sendable {
 
         public override init(_ a: Int, _ b: Int) {
             super.init(a, b)
@@ -553,12 +553,12 @@ open class Evaluator {
     }
 
     /**
-     * Evaluator for matching the first sibling (css :first-child)
+     * Evaluator for matching the first sibling (CSS `:first-child`)
      */
-    public final class IsFirstChild: Evaluator {
+    public final class IsFirstChild: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let p = element.parent()
-            if(p != nil && !(((p as? Document) != nil))) {
+            if element !== root, p != nil, !(p is Document) {
                 return (try element.elementSiblingIndex()) == 0
             }
             return false
@@ -570,11 +570,11 @@ open class Evaluator {
     }
 
     /**
-     * css3 pseudo-class :root
-     * @see <a href="http://www.w3.org/TR/selectors/#root-pseudo">:root selector</a>
-     *
+     CSS3 pseudo-class `:root`
+     
+     - seealso: [`:root` selector](https://www.w3.org/TR/selectors/#root-pseudo)
      */
-    public final class IsRoot: Evaluator {
+    public final class IsRoot: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let r: Element = ((root as? Document) != nil) ? root.child(0) : root
             return element === r
@@ -584,17 +584,17 @@ open class Evaluator {
         }
     }
 
-    public final class IsOnlyChild: Evaluator {
+    public final class IsOnlyChild: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let p = element.parent()
-            return p != nil && !((p as? Document) != nil) && element.siblingElements().array().count == 0
+            return p != nil && !((p as? Document) != nil) && element.siblingElements().isEmpty()
         }
         public override func toString() -> String {
             return ":only-child"
         }
     }
 
-    public final class IsOnlyOfType: Evaluator {
+    public final class IsOnlyOfType: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let p = element.parent()
             if (p == nil || (p as? Document) != nil) {return false}
@@ -613,7 +613,7 @@ open class Evaluator {
         }
     }
 
-    public final class IsEmpty: Evaluator {
+    public final class IsEmpty: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let family: Array<Node> = element.getChildNodes()
             for n in family {
@@ -629,10 +629,8 @@ open class Evaluator {
 
     /**
      * Abstract evaluator for sibling index matching
-     *
-     * @author ant
      */
-    public class IndexEvaluator: Evaluator {
+    public class IndexEvaluator: Evaluator, @unchecked Sendable {
         let index: Int
 
         public init(_ index: Int) {
@@ -643,7 +641,7 @@ open class Evaluator {
     /**
      * Evaluator for matching Element (and its descendants) text
      */
-    public final class ContainsText: Evaluator {
+    public final class ContainsText: Evaluator, @unchecked Sendable {
         private let searchText: String
 
         public init(_ searchText: String) {
@@ -662,7 +660,7 @@ open class Evaluator {
     /**
      * Evaluator for matching Element's own text
      */
-    public final class ContainsOwnText: Evaluator {
+    public final class ContainsOwnText: Evaluator, @unchecked Sendable {
         private let searchText: String
 
         public init(_ searchText: String) {
@@ -681,7 +679,7 @@ open class Evaluator {
     /**
      * Evaluator for matching Element (and its descendants) text with regex
      */
-    public final class Matches: Evaluator {
+    public final class Matches: Evaluator, @unchecked Sendable {
         private let pattern: Pattern
 
         public init(_ pattern: Pattern) {
@@ -701,7 +699,7 @@ open class Evaluator {
     /**
      * Evaluator for matching Element's own text with regex
      */
-    public final class MatchesOwn: Evaluator {
+    public final class MatchesOwn: Evaluator, @unchecked Sendable {
         private let pattern: Pattern
 
         public init(_ pattern: Pattern) {

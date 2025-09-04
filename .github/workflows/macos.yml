@@ -1,4 +1,6 @@
-name: Swift
+name: macOS Swift
+
+
 
 on:
   push:
@@ -8,18 +10,16 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    name: Swift on ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        swift: ["5", "5.7"]
+        os: [macos-15]
         
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: swift-actions/setup-swift@v1.26.0
-      with:
-        swift-version: ${{ matrix.swift }}
+    - name: Print Swift version
+      run: swift --version
     - uses: actions/checkout@v4
     - name: Build
       run: swift build -v

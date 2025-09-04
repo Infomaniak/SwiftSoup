@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 20/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -23,11 +22,18 @@ open class StringUtil {
     private static let empty = ""
     private static let space = " "
 
+    public static let spaceUTF8: [UInt8] = " ".utf8Array
+    public static let backslashTUTF8: [UInt8] = "\t".utf8Array
+    public static let backslashNUTF8: [UInt8] = "\n".utf8Array
+    public static let backslashFUTF8: [UInt8] = "\u{000C}".utf8Array
+    public static let backslashRUTF8: [UInt8] = "\r".utf8Array
+    public static let backshashRBackslashNUTF8: [UInt8] = "\r\n".utf8Array
+    
     /**
      * Join a collection of strings by a seperator
-     * @param strings collection of string objects
-     * @param sep string to place between strings
-     * @return joined string
+     * - parameter strings: collection of string objects
+     * - parameter sep: string to place between strings
+     * - returns: joined string
      */
     public static func join(_ strings: [String], sep: String) -> String {
         return strings.joined(separator: sep)
@@ -42,9 +48,9 @@ open class StringUtil {
 
 //    /**
 //     * Join a collection of strings by a seperator
-//     * @param strings iterator of string objects
-//     * @param sep string to place between strings
-//     * @return joined string
+//     * - parameter strings: iterator of string objects
+//     * - parameter sep: string to place between strings
+//     * - returns: joined string
 //     */
 //    public static String join(Iterator strings, String sep) {
 //    if (!strings.hasNext())
@@ -63,8 +69,8 @@ open class StringUtil {
 //    }
     /**
      * Returns space padding
-     * @param width amount of padding desired
-     * @return string of spaces * width
+     * - parameter width: amount of padding desired
+     * - returns: string of spaces * width
      */
     public static func padding(_ width: Int) -> String {
 
@@ -80,12 +86,12 @@ open class StringUtil {
     }
 
     /**
-     * Tests if a string is blank: null, emtpy, or only whitespace (" ", \r\n, \t, etc)
-     * @param string string to test
-     * @return if string is blank
+     * Tests if a string is blank: emtpy, or only whitespace (" ", \r\n, \t, etc)
+     * - parameter string: string to test
+     * - returns: if string is blank
      */
     public static func isBlank(_ string: String) -> Bool {
-        if (string.count == 0) {
+        if (string.isEmpty) {
             return true
         }
 
@@ -99,11 +105,11 @@ open class StringUtil {
 
     /**
      * Tests if a string is numeric, i.e. contains only digit characters
-     * @param string string to test
-     * @return true if only digit chars, false if empty or null or contains non-digit chrs
+     * - parameter string: string to test
+     * - returns: true if only digit chars, false if empty or contains non-digit chrs
      */
     public static func isNumeric(_ string: String) -> Bool {
-        if (string.count == 0) {
+        if (string.isEmpty) {
             return false
         }
 
@@ -117,8 +123,8 @@ open class StringUtil {
 
     /**
      * Tests if a code point is "whitespace" as defined in the HTML spec.
-     * @param c code point to test
-     * @return true if code point is whitespace, false otherwise
+     * - parameter c: code point to test
+     * - returns: true if code point is whitespace, false otherwise
      */
     public static func isWhitespace(_ c: Character) -> Bool {
         //(c == " " || c == UnicodeScalar.BackslashT || c == "\n" || (c == "\f" ) || c == "\r")
@@ -126,12 +132,39 @@ open class StringUtil {
     }
 
     /**
+     * Tests if a code point is "whitespace" as defined in the HTML spec.
+     * - parameter bytes: code point to test
+     * - returns: true if code point is whitespace, false otherwise
+     */
+    @inlinable
+    public static func isWhitespace(_ bytes: [UInt8]) -> Bool {
+        return bytes == Self.spaceUTF8 ||
+        bytes == Self.backslashTUTF8 ||
+        bytes == Self.backslashNUTF8 ||
+        bytes == Self.backslashFUTF8 ||
+        bytes == Self.backslashRUTF8 ||
+        bytes == Self.backshashRBackslashNUTF8
+    }
+    
+    /**
      * Normalise the whitespace within this string; multiple spaces collapse to a single, and all whitespace characters
      * (e.g. newline, tab) convert to a simple space
-     * @param string content to normalise
-     * @return normalised string
+     * - parameter string: content to normalise
+     * - returns: normalised string
      */
     public static func normaliseWhitespace(_ string: String) -> String {
+        let sb: StringBuilder  = StringBuilder.init()
+        appendNormalisedWhitespace(sb, string: string, stripLeading: false)
+        return sb.toString()
+    }
+    
+    /**
+     * Normalise the whitespace within this string; multiple spaces collapse to a single, and all whitespace characters
+     * (e.g. newline, tab) convert to a simple space
+     * - parameter string: content to normalise
+     * - returns: normalised string
+     */
+    public static func normaliseWhitespace(_ string: [UInt8]) -> String {
         let sb: StringBuilder  = StringBuilder.init()
         appendNormalisedWhitespace(sb, string: string, stripLeading: false)
         return sb.toString()
@@ -139,11 +172,11 @@ open class StringUtil {
 
     /**
      * After normalizing the whitespace within a string, appends it to a string builder.
-     * @param accum builder to append to
-     * @param string string to normalize whitespace within
-     * @param stripLeading set to true if you wish to remove any leading whitespace
+     * - parameter accum: builder to append to
+     * - parameter string: string to normalize whitespace within
+     * - parameter stripLeading: set to true if you wish to remove any leading whitespace
      */
-    public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: String, stripLeading: Bool ) {
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: String, stripLeading: Bool) {
         var lastWasWhite: Bool = false
         var reachedNonWhite: Bool  = false
 
@@ -152,10 +185,51 @@ open class StringUtil {
                 if ((stripLeading && !reachedNonWhite) || lastWasWhite) {
                     continue
                 }
-                accum.append(" ")
+                accum.append(UTF8Arrays.whitespace)
                 lastWasWhite = true
             } else {
-                accum.appendCodePoint(c)
+                accum.append(c)
+                lastWasWhite = false
+                reachedNonWhite = true
+            }
+        }
+    }
+
+    /**
+     * After normalizing the whitespace within a string, appends it to a string builder.
+     * - parameter accum: builder to append to
+     * - parameter string: string to normalize whitespace within
+     * - parameter stripLeading: set to true if you wish to remove any leading whitespace
+     */
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: [UInt8], stripLeading: Bool) {
+        var lastWasWhite = false
+        var reachedNonWhite = false
+        var i = 0
+        while i < string.count {
+            // Determine the length of the current UTF-8 encoded scalar.
+            let firstByte = string[i]
+            let scalarByteCount: Int
+            if firstByte < 0x80 {
+                scalarByteCount = 1
+            } else if firstByte < 0xE0 {
+                scalarByteCount = 2
+            } else if firstByte < 0xF0 {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            guard i + scalarByteCount <= string.count else { break }
+            let scalarBytes = Array(string[i..<i+scalarByteCount])
+            i += scalarByteCount
+            
+            if isWhitespace(scalarBytes) {
+                if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                    continue
+                }
+                accum.append([UInt8](" ".utf8))
+                lastWasWhite = true
+            } else {
+                accum.append(scalarBytes)
                 lastWasWhite = false
                 reachedNonWhite = true
             }
@@ -188,15 +262,14 @@ open class StringUtil {
 
     /**
      * Create a new absolute URL, from a provided existing absolute URL and a relative URL component.
-     * @param base the existing absolulte base URL
-     * @param relUrl the relative URL to resolve. (If it's already absolute, it will be returned)
-     * @return the resolved absolute URL
-     * @throws MalformedURLException if an error occurred generating the URL
+     * - parameter base: the existing absolulte base URL
+     * - parameter relUrl: the relative URL to resolve. (If it's already absolute, it will be returned)
+     * - returns: the resolved absolute URL
      */
     //NOTE: Not sure it work
-    public static func resolve(_ base: URL, relUrl: String ) -> URL? {
+    public static func resolve(_ base: URL, relUrl: String) -> URL? {
         var base = base
-        if(base.pathComponents.count == 0 && base.absoluteString.last != "/" && !base.isFileURL) {
+        if (base.pathComponents.isEmpty && base.absoluteString.last != "/" && !base.isFileURL) {
             base = base.appendingPathComponent("/", isDirectory: false)
         }
         let u =  URL(string: relUrl, relativeTo: base)
@@ -205,45 +278,57 @@ open class StringUtil {
 
     /**
      * Create a new absolute URL, from a provided existing absolute URL and a relative URL component.
-     * @param baseUrl the existing absolute base URL
-     * @param relUrl the relative URL to resolve. (If it's already absolute, it will be returned)
-     * @return an absolute URL if one was able to be generated, or the empty string if not
+     * - parameter baseUrl: the existing absolute base URL
+     * - parameter relUrl: the relative URL to resolve. (If it's already absolute, it will be returned)
+     * - returns: an absolute URL if one was able to be generated, or the empty string if not
      */
     public static func resolve(_ baseUrl: String, relUrl: String ) -> String {
-
         let base = URL(string: baseUrl)
-
-        if(base == nil || base?.scheme == nil) {
-            let abs = URL(string: relUrl)
-			return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
+        
+        if base == nil || base?.scheme == nil {
+            let abs = urlFromString(relUrl)
+            return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
         } else {
-            let url = resolve(base!, relUrl: relUrl)
-            if(url != nil) {
-                let ext = url!.absoluteURL.absoluteString
-                return ext
+            if let url = resolve(base!, relUrl: relUrl) {
+                return url.absoluteURL.absoluteString
             }
-
-            if(base != nil && base?.scheme != nil) {
-                let ext = base!.absoluteString
-                return ext
+            
+            if base?.scheme != nil {
+                return base!.absoluteString
             }
-
+            
             return empty
         }
-
-//        try {
-//            try {
-//                    base = new URL(baseUrl)
-//                } catch (MalformedURLException e) {
-//                        // the base is unsuitable, but the attribute/rel may be abs on its own, so try that
-//                        URL abs = new URL(relUrl)
-//                        return abs.toExternalForm()
-//                }
-//            return resolve(base, relUrl).toExternalForm()
-//        } catch (MalformedURLException e) {
-//            return ""
-//        }
-
+    }
+    
+    
+    private static func urlFromString(_ input: String) -> URL? {
+        // Works around escaping issues in Apple's URL string parsing. As soon as there's one invalid character
+        // in a query, _all_ characters get escaped. This results in `abc%20def[` to get encoded as `abc%2520def%5B`,
+        // thus double-escaping the space `%20`.
+        //
+        // For details see https://github.com/scinfu/SwiftSoup/issues/268
+        
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        // On Apple platforms, simply go with CFURL's parsing which doesn't do the double-escaping (it still escapes
+        // the `[` and `]` in queries, though).
+        return CFURLCreateWithString(nil, input as CFString, nil) as URL?
+#else
+        // On non-Apple platforms use a more manual approach using URL components.
+        guard let queryIndex = input.firstIndex(of: "?") else {
+            return URL(string: input)
+        }
+        
+        guard var components = URLComponents(string: String(input.prefix(upTo: queryIndex))) else {
+            return nil
+        }
+        
+        // The `.query` property escapes/unescapes. So we first need to manually un-escape.
+        let rawQuery = String(input.suffix(from: input.index(after: queryIndex)))
+        let unescapedQuery = rawQuery.removingPercentEncoding
+        components.query = unescapedQuery ?? rawQuery
+        return components.url
+#endif
     }
 
 }

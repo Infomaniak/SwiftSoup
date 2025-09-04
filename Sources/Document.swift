@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -15,62 +14,70 @@ open class Document: Element {
 
     private var _outputSettings: OutputSettings  = OutputSettings()
     private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks
-    private let _location: String
+    private let _location: [UInt8]
     private var updateMetaCharset: Bool = false
 
     /**
      Create a new, empty Document.
-     @param baseUri base URI of document
-     @see SwiftSoup#parse
-     @see #createShell
+     - parameter baseUri: base URI of document
+     - seealso: ``SwiftSoup/parse(_:)-(Data)``, ``createShell(_:)-([UInt8])``
      */
+    public init(_ baseUri: [UInt8]) {
+        _location = baseUri
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), baseUri)
+    }
+    
     public init(_ baseUri: String) {
-        self._location = baseUri
-        super.init(try! Tag.valueOf("#root", ParseSettings.htmlDefault), baseUri)
+        _location = baseUri.utf8Array
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), _location)
     }
 
     /**
      Create a valid, empty shell of a document, suitable for adding more elements to.
-     @param baseUri baseUri of document
-     @return document with html, head, and body elements.
+     - parameter baseUri: baseUri of document
+     - returns: document with html, head, and body elements.
      */
     static public func createShell(_ baseUri: String) -> Document {
+        createShell(baseUri.utf8Array)
+    }
+    
+    static public func createShell(_ baseUri: [UInt8]) -> Document {
         let doc: Document = Document(baseUri)
         let html: Element = try! doc.appendElement("html")
         try! html.appendElement("head")
         try! html.appendElement("body")
-
+        
         return doc
     }
 
     /**
-     * Get the URL this Document was parsed from. If the starting URL is a redirect,
-     * this will return the final URL from which the document was served from.
-     * @return location
+     Get the URL this Document was parsed from. If the starting URL is a redirect,
+     this will return the final URL from which the document was served from.
+     - returns: location
      */
     public func location() -> String {
-    return _location
+        return String(decoding: _location, as: UTF8.self)
     }
 
     /**
-     Accessor to the document's {@code head} element.
-     @return {@code head}
+     Accessor to the document's `head` element.
+     - returns: `head`
      */
     public func head() -> Element? {
-        return findFirstElementByTagName("head", self)
+        return findFirstElementByTagName(UTF8Arrays.head, self)
     }
 
     /**
-     Accessor to the document's {@code body} element.
-     @return {@code body}
+     Accessor to the document's `body` element.
+     - returns: `body`
      */
     public func body() -> Element? {
-        return findFirstElementByTagName("body", self)
+        return findFirstElementByTagName(UTF8Arrays.body, self)
     }
 
     /**
-     Get the string contents of the document's {@code title} element.
-     @return Trimmed title, or empty string if none set.
+     Get the string contents of the document's `title` element.
+     - returns: Trimmed title, or empty string if none set.
      */
     public func title()throws->String {
         // title is a preserve whitespace tag (for document output), but normalised here
@@ -79,9 +86,9 @@ open class Document: Element {
     }
 
     /**
-     Set the document's {@code title} element. Updates the existing element, or adds {@code title} to {@code head} if
+     Set the document's `title` element. Updates the existing element, or adds `title` to `head` if
      not present
-     @param title string to set as title
+     - parameter title: string to set as title
      */
     public func title(_ title: String)throws {
         let titleEl: Element? = try getElementsByTag("title").first()
@@ -94,31 +101,35 @@ open class Document: Element {
 
     /**
      Create a new Element, with this document's base uri. Does not make the new element a child of this document.
-     @param tagName element tag name (e.g. {@code a})
-     @return new element
+     - parameter tagName: element tag name (e.g. `a`)
+     - returns: new element
      */
-    public func createElement(_ tagName: String)throws->Element {
-        return try Element(Tag.valueOf(tagName, ParseSettings.preserveCase), self.getBaseUri())
+    public func createElement(_ tagName: String) throws -> Element {
+        let el = try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
+        if let treeBuilder {
+            el.treeBuilder = treeBuilder
+        }
+        return el
     }
 
     /**
      Normalise the document. This happens after the parse phase so generally does not need to be called.
      Moves any text content that is not in the body element into the body.
-     @return this document after normalisation
+     - returns: this document after normalisation
      */
     @discardableResult
-    public func normalise()throws->Document {
-        var htmlE: Element? = findFirstElementByTagName("html", self)
+    public func normalise() throws -> Document {
+        var htmlE: Element? = findFirstElementByTagName(UTF8Arrays.html, self)
         if (htmlE == nil) {
-            htmlE = try appendElement("html")
+            htmlE = try appendElement(UTF8Arrays.html)
         }
         let htmlEl: Element = htmlE!
 
         if (head() == nil) {
-            try htmlEl.prependElement("head")
+            try htmlEl.prependElement(UTF8Arrays.head)
         }
         if (body() == nil) {
-            try htmlEl.appendElement("body")
+            try htmlEl.appendElement(UTF8Arrays.body)
         }
 
         // pull text nodes out of root, html, and head els, and push into body. non-text nodes are already taken care
@@ -127,8 +138,8 @@ open class Document: Element {
         try normaliseTextNodes(htmlEl)
         try normaliseTextNodes(self)
 
-        try normaliseStructure("head", htmlEl)
-        try normaliseStructure("body", htmlEl)
+        try normaliseStructure(UTF8Arrays.head, htmlEl)
+        try normaliseStructure(UTF8Arrays.body, htmlEl)
 
         try ensureMetaCharsetElement()
 
@@ -136,7 +147,7 @@ open class Document: Element {
     }
 
     // does not recurse.
-    private func normaliseTextNodes(_ element: Element)throws {
+    private func normaliseTextNodes(_ element: Element) throws {
         var toMove: Array<Node> =  Array<Node>()
         for node: Node in element.childNodes {
             if let tn = (node as? TextNode) {
@@ -149,13 +160,13 @@ open class Document: Element {
         for i in (0..<toMove.count).reversed() {
             let node: Node = toMove[i]
             try element.removeChild(node)
-            try body()?.prependChild(TextNode(" ", ""))
+            try body()?.prependChild(TextNode(UTF8Arrays.whitespace, []))
             try body()?.prependChild(node)
         }
     }
 
     // merge multiple <head> or <body> contents into one, delete the remainder, and ensure they are owned by <html>
-    private func normaliseStructure(_ tag: String, _ htmlEl: Element)throws {
+    private func normaliseStructure(_ tag: [UInt8], _ htmlEl: Element) throws {
         let elements: Elements = try self.getElementsByTag(tag)
         let master: Element? = elements.first() // will always be available as created above if not existent
         if (elements.size() > 1) { // dupes, move contents to master
@@ -179,8 +190,8 @@ open class Document: Element {
     }
 
     // fast method to get first by tag name, used for html, head, body finders
-    private func findFirstElementByTagName(_ tag: String, _ node: Node) -> Element? {
-        if (node.nodeName()==tag) {
+    private func findFirstElementByTagName(_ tag: [UInt8], _ node: Node) -> Element? {
+        if (node.nodeNameUTF8() == tag) {
             return node as? Element
         } else {
             for child: Node in node.childNodes {
@@ -193,48 +204,55 @@ open class Document: Element {
         return nil
     }
 
-    open override func outerHtml()throws->String {
+    @inline(__always)
+    open override func outerHtml() throws -> String {
         return try super.html() // no outer wrapper tag
+    }
+    
+    @inline(__always)
+    open func outerHtmlUTF8() throws -> [UInt8] {
+        return try super.htmlUTF8() // no outer wrapper tag
     }
 
     /**
-     Set the text of the {@code body} of this document. Any existing nodes within the body will be cleared.
-     @param text unencoded text
-     @return this document
+     Set the text of the `body` of this document. Any existing nodes within the body will be cleared.
+     - parameter text: unencoded text
+     - returns: this document
      */
     @discardableResult
-    public override func text(_ text: String)throws->Element {
+    @inline(__always)
+    public override func text(_ text: String) throws -> Element {
         try body()?.text(text) // overridden to not nuke doc structure
         return self
     }
 
-    open override func nodeName() -> String {
-    return "#document"
+    @inline(__always)
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
+    @inline(__always)
+    public override func nodeName() -> String {
+        return "#document"
     }
 
     /**
-     * Sets the charset used in this document. This method is equivalent
-     * to {@link OutputSettings#charset(java.nio.charset.Charset)
-     * OutputSettings.charset(Charset)} but in addition it updates the
-     * charset / encoding element within the document.
-     *
-     * <p>This enables
-     * {@link #updateMetaCharsetElement(boolean) meta charset update}.</p>
-     *
-     * <p>If there's no element with charset / encoding information yet it will
-     * be created. Obsolete charset / encoding definitions are removed!</p>
-     *
-     * <p><b>Elements used:</b></p>
-     *
-     * <ul>
-     * <li><b>Html:</b> <i>&lt;meta charset="CHARSET"&gt;</i></li>
-     * <li><b>Xml:</b> <i>&lt;?xml version="1.0" encoding="CHARSET"&gt;</i></li>
-     * </ul>
-     *
-     * @param charset Charset
-     *
-     * @see #updateMetaCharsetElement(boolean)
-     * @see OutputSettings#charset(java.nio.charset.Charset)
+     Sets the charset used in this document. This method is equivalent
+     to ``OutputSettings/charset(_:)`` but in addition it updates the
+     charset / encoding element within the document.
+     
+     This enables ``updateMetaCharsetElement(_:)`` meta charset update.
+     
+     If there's no element with charset / encoding information yet it will
+     be created. Obsolete charset / encoding definitions are removed!
+     
+     **Elements used:**
+     
+     * **HTML:** `<meta charset="CHARSET">`
+     * **XML:**: `<?xml version="1.0" encoding="CHARSET">`
+     
+     - parameter charset: Charset
+     - seealso: ``updateMetaCharsetElement(_:)``, ``OutputSettings/charset(_:)``
      */
     public func charset(_ charset: String.Encoding)throws {
         updateMetaCharsetElement(true)
@@ -243,66 +261,57 @@ open class Document: Element {
     }
 
     /**
-     * Returns the charset used in this document. This method is equivalent
-     * to {@link OutputSettings#charset()}.
-     *
-     * @return Current Charset
-     *
-     * @see OutputSettings#charset()
+     Returns the charset used in this document. This method is equivalent
+     to ``OutputSettings/charset()``.
+     
+     - returns: Current Charset
      */
-    public func charset()->String.Encoding {
+    @inline(__always)
+    public func charset() -> String.Encoding {
         return _outputSettings.charset()
     }
 
     /**
-     * Sets whether the element with charset information in this document is
-     * updated on changes through {@link #charset(java.nio.charset.Charset)
-     * Document.charset(Charset)} or not.
-     *
-     * <p>If set to <tt>false</tt> <i>(default)</i> there are no elements
-     * modified.</p>
-     *
-     * @param update If <tt>true</tt> the element updated on charset
-     * changes, <tt>false</tt> if not
-     *
-     * @see #charset(java.nio.charset.Charset)
+     Sets whether the element with charset information in this document is
+     updated on changes through ``charset(_:)`` or not.
+     
+     If set to `false` (default) there are no elements modified.
+     
+     - parameter update: If `true` the element updated on charset
+     changes, `false` if not
      */
+    @inline(__always)
     public func updateMetaCharsetElement(_ update: Bool) {
         self.updateMetaCharset = update
     }
 
     /**
-     * Returns whether the element with charset information in this document is
-     * updated on changes through {@link #charset(java.nio.charset.Charset)
-     * Document.charset(Charset)} or not.
-     *
-     * @return Returns <tt>true</tt> if the element is updated on charset
-     * changes, <tt>false</tt> if not
+     Returns whether the element with charset information in this document is
+     updated on changes through ``charset(_:)`` or not.
+     
+     - returns: Returns `e` if the element is updated on charset
+     changes, `e` if not
      */
+    @inline(__always)
     public func updateMetaCharsetElement() -> Bool {
         return updateMetaCharset
     }
 
     /**
-     * Ensures a meta charset (html) or xml declaration (xml) with the current
-     * encoding used. This only applies with
-     * {@link #updateMetaCharsetElement(boolean) updateMetaCharset} set to
-     * <tt>true</tt>, otherwise this method does nothing.
-     *
-     * <ul>
-     * <li>An exsiting element gets updated with the current charset</li>
-     * <li>If there's no element yet it will be inserted</li>
-     * <li>Obsolete elements are removed</li>
-     * </ul>
-     *
-     * <p><b>Elements used:</b></p>
-     *
-     * <ul>
-     * <li><b>Html:</b> <i>&lt;meta charset="CHARSET"&gt;</i></li>
-     * <li><b>Xml:</b> <i>&lt;?xml version="1.0" encoding="CHARSET"&gt;</i></li>
-     * </ul>
+     Ensures a meta charset (HTML) or XML declaration (XML) with the current
+     encoding used. This only applies with ``updateMetaCharsetElement(_:)``
+     set to `e`, otherwise this method does nothing.
+     
+     An existing element gets updated with the current charset.
+     If there's no element yet it will be inserted.
+     Obsolete elements are removed.
+     
+     **Elements used:**
+     
+     * **HTML:** `<meta charset="CHARSET">`
+     * **XML:** `<?xml version="1.0" encoding="CHARSET">`
      */
-    private func ensureMetaCharsetElement()throws {
+    private func ensureMetaCharsetElement() throws {
         if (updateMetaCharset) {
             let syntax: OutputSettings.Syntax = outputSettings().syntax()
 
@@ -329,23 +338,23 @@ open class Document: Element {
                 if let decl = (node as? XmlDeclaration) {
 
                     if (decl.name()=="xml") {
-                        try decl.attr("encoding", charset().displayName())
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
-                        _ = try  decl.attr("version")
-                        try decl.attr("version", "1.0")
+                        _ = try  decl.attr("version".utf8Array)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
                     } else {
                         try Validate.notNull(obj: baseUri)
-                        let decl = XmlDeclaration("xml", baseUri!, false)
-                        try decl.attr("version", "1.0")
-                        try decl.attr("encoding", charset().displayName())
+                        let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                         try prependChild(decl)
                     }
                 } else {
                     try Validate.notNull(obj: baseUri)
-                    let decl = XmlDeclaration("xml", baseUri!, false)
-                    try decl.attr("version", "1.0")
-                    try decl.attr("encoding", charset().displayName())
+                    let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                    try decl.attr("version".utf8Array, "1.0".utf8Array)
+                    try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                     try prependChild(decl)
                 }
@@ -354,44 +363,51 @@ open class Document: Element {
     }
 
     /**
-     * Get the document's current output settings.
-     * @return the document's current output settings.
+     Get the document's current output settings.
+     - returns: the document's current output settings.
      */
+    @inline(__always)
     public func outputSettings() -> OutputSettings {
     return _outputSettings
     }
 
     /**
-     * Set the document's output settings.
-     * @param outputSettings new output settings.
-     * @return this document, for chaining.
+     Set the document's output settings.
+     - parameter outputSettings: new output settings.
+     - returns: this document, for chaining.
      */
     @discardableResult
+    @inline(__always)
     public func outputSettings(_ outputSettings: OutputSettings) -> Document {
         self._outputSettings = outputSettings
         return self
     }
 
+    @inline(__always)
     public func quirksMode()->Document.QuirksMode {
         return _quirksMode
     }
 
     @discardableResult
+    @inline(__always)
     public func quirksMode(_ quirksMode: Document.QuirksMode) -> Document {
         self._quirksMode = quirksMode
         return self
     }
 
+    @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = Document(_location)
 		return copy(clone: clone)
 	}
 
+    @inline(__always)
 	public override func copy(parent: Node?) -> Node {
 		let clone = Document(_location)
 		return copy(clone: clone, parent: parent)
 	}
 
+    @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! Document
 		clone._outputSettings = _outputSettings.copy() as! OutputSettings
@@ -408,8 +424,10 @@ public class OutputSettings: NSCopying {
      */
     public enum Syntax {case html, xml}
 
-    private var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
-    private var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
+    @usableFromInline
+    internal var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
+    @usableFromInline
+    internal var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
     private var _prettyPrint: Bool = true
     private var _outline: Bool = false
     private var _indentAmount: UInt  = 1
@@ -418,139 +436,157 @@ public class OutputSettings: NSCopying {
     public init() {}
 
     /**
-     * Get the document's current HTML escape mode: <code>base</code>, which provides a limited set of named HTML
-     * entities and escapes other characters as numbered entities for maximum compatibility; or <code>extended</code>,
-     * which uses the complete set of HTML named entities.
-     * <p>
-     * The default escape mode is <code>base</code>.
-     * @return the document's current escape mode
+     Get the document's current HTML escape mode: `e`, which provides a limited set of named HTML
+     entities and escapes other characters as numbered entities for maximum compatibility; or `d`,
+     which uses the complete set of HTML named entities.
+     
+     The default escape mode is `e`.
+     - returns: the document's current escape mode
      */
+    @inline(__always)
     public func escapeMode() -> Entities.EscapeMode {
         return _escapeMode
     }
 
     /**
-     * Set the document's escape mode, which determines how characters are escaped when the output character set
-     * does not support a given character:- using either a named or a numbered escape.
-     * @param escapeMode the new escape mode to use
-     * @return the document's output settings, for chaining
+     Set the document's escape mode, which determines how characters are escaped when the output character set
+     does not support a given character:- using either a named or a numbered escape.
+     - parameter escapeMode: the new escape mode to use
+     - returns: the document's output settings, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func escapeMode(_ escapeMode: Entities.EscapeMode) -> OutputSettings {
         self._escapeMode = escapeMode
         return self
     }
 
     /**
-     * Get the document's current output charset, which is used to control which characters are escaped when
-     * generating HTML (via the <code>html()</code> methods), and which are kept intact.
-     * <p>
-     * Where possible (when parsing from a URL or File), the document's output charset is automatically set to the
-     * input charset. Otherwise, it defaults to UTF-8.
-     * @return the document's current charset.
+     Get the document's current output charset, which is used to control which characters are escaped when
+     generating HTML (via the `)` methods), and which are kept intact.
+     
+     Where possible (when parsing from a URL or File), the document's output charset is automatically set to the
+     input charset. Otherwise, it defaults to UTF-8.
+     
+     - returns: the document's current charset.
      */
+    @inline(__always)
     public func encoder() -> String.Encoding {
         return _encoder
     }
+    
+    @inline(__always)
     public func charset() -> String.Encoding {
         return _encoder
     }
 
     /**
-     * Update the document's output charset.
-     * @param charset the new charset to use.
-     * @return the document's output settings, for chaining
+     Update the document's output charset.
+     - parameter encoder: the new charset to use.
+     - returns: the document's output settings, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func encoder(_ encoder: String.Encoding) -> OutputSettings {
         self._encoder = encoder
         return self
     }
 
     @discardableResult
+    @inline(__always)
     public func charset(_ e: String.Encoding) -> OutputSettings {
         return encoder(e)
     }
 
     /**
-     * Get the document's current output syntax.
-     * @return current syntax
+     Get the document's current output syntax.
+     - returns: current syntax
      */
+    @inline(__always)
     public func syntax() -> Syntax {
         return _syntax
     }
 
     /**
-     * Set the document's output syntax. Either {@code html}, with empty tags and boolean attributes (etc), or
-     * {@code xml}, with self-closing tags.
-     * @param syntax serialization syntax
-     * @return the document's output settings, for chaining
+     Set the document's output syntax. Either `html`, with empty tags and boolean attributes (etc), or
+     `xml`, with self-closing tags.
+     
+     - parameter syntax: serialization syntax
+     - returns: the document's output settings, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func syntax(syntax: Syntax) -> OutputSettings {
         _syntax = syntax
         return self
     }
 
     /**
-     * Get if pretty printing is enabled. Default is true. If disabled, the HTML output methods will not re-format
-     * the output, and the output will generally look like the input.
-     * @return if pretty printing is enabled.
+     Get if pretty printing is enabled. Default is true. If disabled, the HTML output methods will not re-format
+     the output, and the output will generally look like the input.
+     - returns: if pretty printing is enabled.
      */
+    @inline(__always)
     public func prettyPrint() -> Bool {
         return _prettyPrint
     }
 
     /**
-     * Enable or disable pretty printing.
-     * @param pretty new pretty print setting
-     * @return this, for chaining
+     Enable or disable pretty printing.
+     - parameter pretty: new pretty print setting
+     - returns: this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func prettyPrint(pretty: Bool) -> OutputSettings {
         _prettyPrint = pretty
         return self
     }
 
     /**
-     * Get if outline mode is enabled. Default is false. If enabled, the HTML output methods will consider
-     * all tags as block.
-     * @return if outline mode is enabled.
+     Get if outline mode is enabled. Default is false. If enabled, the HTML output methods will consider
+     all tags as block.
+     - returns: if outline mode is enabled.
      */
+    @inline(__always)
     public func outline() -> Bool {
         return _outline
     }
 
     /**
-     * Enable or disable HTML outline mode.
-     * @param outlineMode new outline setting
-     * @return this, for chaining
+     Enable or disable HTML outline mode.
+     - parameter outlineMode: new outline setting
+     - returns: this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func outline(outlineMode: Bool) -> OutputSettings {
         _outline = outlineMode
         return self
     }
 
     /**
-     * Get the current tag indent amount, used when pretty printing.
-     * @return the current indent amount
+     Get the current tag indent amount, used when pretty printing.
+     - returns: the current indent amount
      */
+    @inline(__always)
     public func indentAmount() -> UInt {
         return _indentAmount
     }
 
     /**
-     * Set the indent amount for pretty printing
-     * @param indentAmount number of spaces to use for indenting each level. Must be {@literal >=} 0.
-     * @return this, for chaining
+     Set the indent amount for pretty printing
+     - parameter indentAmount: number of spaces to use for indenting each level. Must be >= 0.
+     - returns: this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func indentAmount(indentAmount: UInt) -> OutputSettings {
         _indentAmount = indentAmount
         return self
     }
 
+    @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
         let clone: OutputSettings = OutputSettings()
         clone.charset(_encoder) // new charset and charset encoder

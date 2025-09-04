@@ -3,7 +3,6 @@
 //  SwifSoupTests
 //
 //  Created by Nabil Chatbi on 20/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
@@ -30,15 +29,6 @@ class StringUtilTest: XCTestCase {
 //			print("Error")
 //		}
 //	}
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
     func testJoin() {
         XCTAssertEqual("", StringUtil.join([""], sep: " "))
@@ -94,7 +84,7 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("hello there", StringUtil.normaliseWhitespace("hello\nthere"))
     }
 
-    func testNormaliseWhiteSpaceHandlesHighSurrogates()throws {
+    func testNormaliseWhiteSpaceHandlesHighSurrogates() throws {
         let test71540chars = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a}  1"
         let test71540charsExpectedSingleWhitespace = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a} 1"
 
@@ -119,19 +109,14 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "./two.c"))
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "two.c"))
     }
-
-    static var allTests = {
-        return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testJoin", testJoin),
-            ("testPadding", testPadding),
-            ("testIsBlank", testIsBlank),
-            ("testIsNumeric", testIsNumeric),
-            ("testIsWhitespace", testIsWhitespace),
-            ("testNormaliseWhiteSpace", testNormaliseWhiteSpace),
-            ("testNormaliseWhiteSpaceHandlesHighSurrogates", testNormaliseWhiteSpaceHandlesHighSurrogates),
-            ("testResolvesRelativeUrls", testResolvesRelativeUrls)
-        ]
-    }()
-
+    
+    func testResolveEscaping() {
+        let source1 = "mailto:mail@example.com?subject=Job%20Requisition[NID]"
+        let source2 = "https://example.com?foo=one%20two["
+        
+        // Ideally, the `mailto` example would resolve it its input (preserving `[` and `]`).
+        // See https://github.com/scinfu/SwiftSoup/issues/268
+        XCTAssertEqual("mailto:mail@example.com?subject=Job%20Requisition%5BNID%5D", StringUtil.resolve("", relUrl: source1))
+        XCTAssertEqual("https://example.com?foo=one%20two%5B", StringUtil.resolve("", relUrl: source2))
+    }
 }

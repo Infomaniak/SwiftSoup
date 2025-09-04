@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 09/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import XCTest
@@ -11,16 +10,7 @@ import SwiftSoup
 
 class FormElementTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
-	func testHasAssociatedControls()throws {
+	func testHasAssociatedControls() throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
 		let html = "<form id=1><button id=1><fieldset id=2 /><input id=3><keygen id=4><object id=5><output id=6>" +
 		"<select id=7><option></select><textarea id=8><p id=9>"
@@ -31,7 +21,7 @@ class FormElementTest: XCTestCase {
 	}
 
 	//todo:
-//	func createsFormData()throws {
+//	func createsFormData() throws {
 //		let html = "<form><input name='one' value='two'><select name='three'><option value='not'>" +
 //			"<option value='four' selected><option value='five' selected><textarea name=six>seven</textarea>" +
 //			"<input name='seven' type='radio' value='on' checked><input name='seven' type='radio' value='off'>" +
@@ -73,7 +63,7 @@ class FormElementTest: XCTestCase {
 //	}
 
 	//TODO:
-//	func testActionWithNoValue()throws {
+//	func testActionWithNoValue() throws {
 //	String html = "<form><input name='q'></form>";
 //	Document doc = Jsoup.parse(html, "http://example.com/");
 //	FormElement form = ((FormElement) doc.select("form").first());
@@ -100,7 +90,7 @@ class FormElementTest: XCTestCase {
 //	assertTrue(threw);
 //	}
 
-	func testFormsAddedAfterParseAreFormElements()throws {
+	func testFormsAddedAfterParseAreFormElements() throws {
 		let doc: Document = try SwiftSoup.parse("<body />")
 		try doc.body()?.html("<form action='http://example.com/search'><input name='q' value='search'>")
 		let formEl: Element = try doc.select("form").first()!
@@ -110,7 +100,7 @@ class FormElementTest: XCTestCase {
 		XCTAssertEqual(1, form.elements().size())
 	}
 
-	func testControlsAddedAfterParseAreLinkedWithForms()throws {
+	func testControlsAddedAfterParseAreLinkedWithForms() throws {
 		let doc: Document = try SwiftSoup.parse("<body />")
 		try doc.body()?.html("<form />")
 
@@ -127,7 +117,7 @@ class FormElementTest: XCTestCase {
 	}
 
 	//todo:
-//	func testUsesOnForCheckboxValueIfNoValueSet()throws {
+//	func testUsesOnForCheckboxValueIfNoValueSet() throws {
 //	let doc = try Jsoup.parse("<form><input type=checkbox checked name=foo></form>");
 //	let form = try doc.select("form").first()! as! FormElement
 //	List<Connection.KeyVal> data = form.formData();
@@ -157,13 +147,4 @@ class FormElementTest: XCTestCase {
 //	assertEquals("pass", data.get(1).key());
 //	assertEquals("login", data.get(2).key());
 //	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHasAssociatedControls", testHasAssociatedControls),
-			("testFormsAddedAfterParseAreFormElements", testFormsAddedAfterParseAreFormElements),
-			("testControlsAddedAfterParseAreLinkedWithForms", testControlsAddedAfterParseAreLinkedWithForms)
-		]
-	}()
 }

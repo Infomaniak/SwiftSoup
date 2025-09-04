@@ -3,12 +3,11 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 08/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-public struct Pattern {
+public struct Pattern: Sendable {
     public static let CASE_INSENSITIVE: Int = 0x02
     let pattern: String
 
@@ -23,7 +22,7 @@ public struct Pattern {
         return Pattern(s)
     }
 
-    public func validate()throws {
+    public func validate() throws {
          _ = try NSRegularExpression(pattern: self.pattern, options: [])
     }
 

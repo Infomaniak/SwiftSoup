@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -17,49 +16,59 @@ open class TextNode: Node {
      memory, and the child nodes are never used. So we don't have them, and override accessors to attributes to create
      them as needed on the fly.
      */
-    private static let TEXT_KEY: String = "text"
-    var _text: String
+    private static let TEXT_KEY = "text".utf8Array
+    var _text: [UInt8]
 
     /**
      Create a new TextNode representing the supplied (unencoded) text).
      
-     @param text raw text
-     @param baseUri base uri
-     @see #createFromEncoded(String, String)
+     - parameter text: raw text
+     - parameter baseUri: base uri
      */
-    public init(_ text: String, _ baseUri: String?) {
+    public init(_ text: [UInt8], _ baseUri: [UInt8]?) {
         self._text = text
         super.init()
         self.baseUri = baseUri
 
     }
+    public convenience init(_ text: String, _ baseUri: String?) {
+        self.init(text.utf8Array, baseUri?.utf8Array)
+    }
 
-    open override func nodeName() -> String {
+    @inline(__always)
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
+    @inline(__always)
+    public override func nodeName() -> String {
         return "#text"
     }
 
     /**
-     * Get the text content of this text node.
-     * @return Unencoded, normalised text.
-     * @see TextNode#getWholeText()
+     Get the text content of this text node.
+     - returns: Unencoded, normalised text.
+     - seealso: ``getWholeText()``
      */
+    @inline(__always)
     open func text() -> String {
-        return TextNode.normaliseWhitespace(getWholeText())
+        return TextNode.normaliseWhitespace(getWholeTextUTF8())
     }
 
     /**
-     * Set the text content of this text node.
-     * @param text unencoded text
-     * @return this, for chaining
+     Set the text content of this text node.
+     - parameter text: unencoded text
+     - returns: this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func text(_ text: String) -> TextNode {
-        self._text = text
+        _text = text.utf8Array
         guard let attributes = attributes else {
             return self
         }
         do {
-            try attributes.put(TextNode.TEXT_KEY, text)
+            try attributes.put(TextNode.TEXT_KEY, _text)
         } catch {
 
         }
@@ -68,82 +77,114 @@ open class TextNode: Node {
 
     /**
      Get the (unencoded) text of this text node, including any newlines and spaces present in the original.
-     @return text
+     - returns: text
      */
+    @inline(__always)
     open func getWholeText() -> String {
-		return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
+        return String(decoding: attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY), as: UTF8.self)
+    }
+    
+    @inline(__always)
+    open func getWholeTextUTF8() -> [UInt8] {
+        return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
     }
 
     /**
      Test if this text node is blank -- that is, empty or only whitespace (including newlines).
-     @return true if this document is empty or only whitespace, false if it contains any text content.
+     - returns: true if this document is empty or only whitespace, false if it contains any text content.
      */
+    @inline(__always)
     open func isBlank() -> Bool {
         return StringUtil.isBlank(getWholeText())
     }
 
     /**
-     * Split this text node into two nodes at the specified string offset. After splitting, this node will contain the
-     * original text up to the offset, and will have a new text node sibling containing the text after the offset.
-     * @param offset string offset point to split node at.
-     * @return the newly created text node containing the text after the offset.
+     Split this text node into two nodes at the specified string offset. After splitting, this node will contain the
+     original text up to the offset, and will have a new text node sibling containing the text after the offset.
+     - parameter offset: string offset point to split node at.
+     - returns: the newly created text node containing the text after the offset.
      */
-    open func splitText(_ offset: Int)throws->TextNode {
+    open func splitText(_ offset: Int) throws -> TextNode {
         try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative")
         try Validate.isTrue(val: offset < _text.count, msg: "Split offset must not be greater than current text length")
 
         let head: String = getWholeText().substring(0, offset)
         let tail: String = getWholeText().substring(offset)
         text(head)
-        let tailNode: TextNode = TextNode(tail, self.getBaseUri())
+        let tailNode: TextNode = TextNode(tail.utf8Array, self.getBaseUriUTF8())
         if (parent() != nil) {
             try parent()?.addChildren(siblingIndex+1, tailNode)
         }
         return tailNode
     }
+    
+    open func splitText(utf8Offset: Int) throws -> TextNode {
+        // Ensure UTF-8 offset is within valid bounds
+        try Validate.isTrue(val: utf8Offset >= 0, msg: "Split UTF-8 offset must not be negative")
+        try Validate.isTrue(val: utf8Offset < _text.count, msg: "Split UTF-8 offset must not exceed current text length in UTF-8 bytes")
+        
+        // Convert UTF-8 offset to extended grapheme cluster offset
+        let graphemeOffset = Substring(getWholeText().utf8.prefix(utf8Offset)).count
+        
+        // Validate grapheme cluster offset
+        try Validate.isTrue(val: graphemeOffset < _text.count, msg: "Split grapheme cluster offset must not exceed current text length")
+        
+        return try splitText(graphemeOffset)
+    }
 
-    override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
+    override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
 		if (out.prettyPrint() &&
 			((siblingIndex == 0 && (parentNode as? Element) != nil &&  (parentNode as! Element).tag().formatAsBlock() && !isBlank()) ||
-				(out.outline() && siblingNodes().count > 0 && !isBlank()) )) {
+                (out.outline() && !siblingNodes().isEmpty && !isBlank()) )) {
             indent(accum, depth, out)
 		}
 
         let par: Element? = parent() as? Element
         let normaliseWhite = out.prettyPrint() && par != nil && !Element.preserveWhitespace(par!)
 
-        Entities.escape(accum, getWholeText(), out, false, normaliseWhite, false)
+        Entities.escape(accum, getWholeTextUTF8(), out, false, normaliseWhite, false)
     }
 
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
     }
 
     /**
-     * Create a new TextNode from HTML encoded (aka escaped) data.
-     * @param encodedText Text containing encoded HTML (e.g. &amp;lt;)
-     * @param baseUri Base uri
-     * @return TextNode containing unencoded data (e.g. &lt;)
+     Create a new TextNode from HTML encoded (aka escaped) data.
+     - parameter encodedText: Text containing encoded HTML (e.g. `&amp;lt;`)
+     - parameter baseUri: Base uri
+     - returns: TextNode containing unencoded data (e.g. `&lt;`)
      */
-    public static func createFromEncoded(_ encodedText: String, _ baseUri: String)throws->TextNode {
-        let text: String = try Entities.unescape(encodedText)
-        return TextNode(text, baseUri)
+    @inline(__always)
+    public static func createFromEncoded(_ encodedText: String, _ baseUri: String) throws -> TextNode {
+        let text = try Entities.unescape(encodedText.utf8Array)
+        return TextNode(text, baseUri.utf8Array)
     }
 
+    @inline(__always)
     static public func normaliseWhitespace(_ text: String) -> String {
-        let _text = StringUtil.normaliseWhitespace(text)
-        return _text
+        return StringUtil.normaliseWhitespace(text)
+    }
+    
+    @inline(__always)
+    static public func normaliseWhitespace(_ text: [UInt8]) -> String {
+        return StringUtil.normaliseWhitespace(text)
     }
 
+    @inline(__always)
     static public func stripLeadingWhitespace(_ text: String) -> String {
         return text.replaceFirst(of: "^\\s+", with: "")
         //return text.replaceFirst("^\\s+", "")
     }
 
+    @inlinable
+    @inline(__always)
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
-        return sb.toString().last == " "
+        return sb.buffer.last == 0x20  // 0x20 is the UTF-8 code for a space character
     }
 
     // attribute fiddling. create on first access.
+    @inline(__always)
     private func ensureAttributes() {
         if (attributes == nil) {
             attributes = Attributes()
@@ -153,7 +194,12 @@ open class TextNode: Node {
         }
     }
 
-    open override func attr(_ attributeKey: String)throws->String {
+    open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
+        ensureAttributes()
+        return try super.attr(attributeKey)
+    }
+    
+    open override func attr(_ attributeKey: String) throws -> String {
         ensureAttributes()
         return try super.attr(attributeKey)
     }
@@ -163,7 +209,12 @@ open class TextNode: Node {
         return super.getAttributes()!
     }
 
-    open override func attr(_ attributeKey: String, _ attributeValue: String)throws->Node {
+    open override func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
+        ensureAttributes()
+        return try super.attr(attributeKey, attributeValue)
+    }
+    
+    open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
         ensureAttributes()
         return try super.attr(attributeKey, attributeValue)
     }
@@ -173,12 +224,22 @@ open class TextNode: Node {
         return super.hasAttr(attributeKey)
     }
 
-    open override func removeAttr(_ attributeKey: String)throws->Node {
+    open override func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
+        ensureAttributes()
+        return try super.removeAttr(attributeKey)
+    }
+    
+    open override func removeAttr(_ attributeKey: String) throws -> Node {
         ensureAttributes()
         return try super.removeAttr(attributeKey)
     }
 
-    open override func absUrl(_ attributeKey: String)throws->String {
+    open override func absUrl(_ attributeKey: String) throws -> String {
+        ensureAttributes()
+        return try super.absUrl(attributeKey)
+    }
+    
+    open override func absUrl<T: Collection>(_ attributeKey: T) throws -> [UInt8] where T.Element == UInt8 {
         ensureAttributes()
         return try super.absUrl(attributeKey)
     }

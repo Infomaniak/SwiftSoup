@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -13,11 +12,12 @@ import Foundation
  */
 open class BooleanAttribute: Attribute {
     /**
-     * Create a new boolean attribute from unencoded (raw) key.
-     * @param key attribute key
+     Create a new boolean attribute from unencoded (raw) key.
+     - parameter key: attribute key
      */
-    init(key: String) throws {
-        try super.init(key: key, value: "")
+    @usableFromInline
+    init(key: [UInt8]) throws {
+        try super.init(key: key, value: [])
     }
 
     override public func isBooleanAttribute() -> Bool {
