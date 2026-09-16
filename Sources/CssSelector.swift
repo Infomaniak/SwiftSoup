@@ -3,87 +3,100 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 21/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-/**
- * CSS-like element selector, that finds elements matching a query.
- *
- * <h2>CssSelector syntax</h2>
- * <p>
- * A selector is a chain of simple selectors, separated by combinators. Selectors are <b>case insensitive</b> (including against
- * elements, attributes, and attribute values).
- * </p>
- * <p>
- * The universal selector (*) is implicit when no element selector is supplied (i.e. {@code *.header} and {@code .header}
- * is equivalent).
- * </p>
- * <table summary="">
- * <tr><th align="left">Pattern</th><th align="left">Matches</th><th align="left">Example</th></tr>
- * <tr><td><code>*</code></td><td>any element</td><td><code>*</code></td></tr>
- * <tr><td><code>tag</code></td><td>elements with the given tag name</td><td><code>div</code></td></tr>
- * <tr><td><code>*|E</code></td><td>elements of type E in any namespace <i>ns</i></td><td><code>*|name</code> finds <code>&lt;fb:name&gt;</code> elements</td></tr>
- * <tr><td><code>ns|E</code></td><td>elements of type E in the namespace <i>ns</i></td><td><code>fb|name</code> finds <code>&lt;fb:name&gt;</code> elements</td></tr>
- * <tr><td><code>#id</code></td><td>elements with attribute ID of "id"</td><td><code>div#wrap</code>, <code>#logo</code></td></tr>
- * <tr><td><code>.class</code></td><td>elements with a class name of "class"</td><td><code>div.left</code>, <code>.result</code></td></tr>
- * <tr><td><code>[attr]</code></td><td>elements with an attribute named "attr" (with any value)</td><td><code>a[href]</code>, <code>[title]</code></td></tr>
- * <tr><td><code>[^attrPrefix]</code></td><td>elements with an attribute name starting with "attrPrefix". Use to find elements with HTML5 datasets</td><td><code>[^data-]</code>, <code>div[^data-]</code></td></tr>
- * <tr><td><code>[attr=val]</code></td><td>elements with an attribute named "attr", and value equal to "val"</td><td><code>img[width=500]</code>, <code>a[rel=nofollow]</code></td></tr>
- * <tr><td><code>[attr=&quot;val&quot;]</code></td><td>elements with an attribute named "attr", and value equal to "val"</td><td><code>span[hello="Cleveland"][goodbye="Columbus"]</code>, <code>a[rel=&quot;nofollow&quot;]</code></td></tr>
- * <tr><td><code>[attr^=valPrefix]</code></td><td>elements with an attribute named "attr", and value starting with "valPrefix"</td><td><code>a[href^=http:]</code></td></tr>
- * <tr><td><code>[attr$=valSuffix]</code></td><td>elements with an attribute named "attr", and value ending with "valSuffix"</td><td><code>img[src$=.png]</code></td></tr>
- * <tr><td><code>[attr*=valContaining]</code></td><td>elements with an attribute named "attr", and value containing "valContaining"</td><td><code>a[href*=/search/]</code></td></tr>
- * <tr><td><code>[attr~=<em>regex</em>]</code></td><td>elements with an attribute named "attr", and value matching the regular expression</td><td><code>img[src~=(?i)\\.(png|jpe?g)]</code></td></tr>
- * <tr><td></td><td>The above may be combined in any order</td><td><code>div.header[title]</code></td></tr>
- * <tr><td><td colspan="3"><h3>Combinators</h3></td></tr>
- * <tr><td><code>E F</code></td><td>an F element descended from an E element</td><td><code>div a</code>, <code>.logo h1</code></td></tr>
- * <tr><td><code>E {@literal >} F</code></td><td>an F direct child of E</td><td><code>ol {@literal >} li</code></td></tr>
- * <tr><td><code>E + F</code></td><td>an F element immediately preceded by sibling E</td><td><code>li + li</code>, <code>div.head + div</code></td></tr>
- * <tr><td><code>E ~ F</code></td><td>an F element preceded by sibling E</td><td><code>h1 ~ p</code></td></tr>
- * <tr><td><code>E, F, G</code></td><td>all matching elements E, F, or G</td><td><code>a[href], div, h3</code></td></tr>
- * <tr><td><td colspan="3"><h3>Pseudo selectors</h3></td></tr>
- * <tr><td><code>:lt(<em>n</em>)</code></td><td>elements whose sibling index is less than <em>n</em></td><td><code>td:lt(3)</code> finds the first 3 cells of each row</td></tr>
- * <tr><td><code>:gt(<em>n</em>)</code></td><td>elements whose sibling index is greater than <em>n</em></td><td><code>td:gt(1)</code> finds cells after skipping the first two</td></tr>
- * <tr><td><code>:eq(<em>n</em>)</code></td><td>elements whose sibling index is equal to <em>n</em></td><td><code>td:eq(0)</code> finds the first cell of each row</td></tr>
- * <tr><td><code>:has(<em>selector</em>)</code></td><td>elements that contains at least one element matching the <em>selector</em></td><td><code>div:has(p)</code> finds divs that contain p elements </td></tr>
- * <tr><td><code>:not(<em>selector</em>)</code></td><td>elements that do not match the <em>selector</em>. See also {@link Elements#not(String)}</td><td><code>div:not(.logo)</code> finds all divs that do not have the "logo" class.<p><code>div:not(:has(div))</code> finds divs that do not contain divs.</p></td></tr>
- * <tr><td><code>:contains(<em>text</em>)</code></td><td>elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants.</td><td><code>p:contains(SwiftSoup)</code> finds p elements containing the text "SwiftSoup".</td></tr>
- * <tr><td><code>:matches(<em>regex</em>)</code></td><td>elements whose text matches the specified regular expression. The text may appear in the found element, or any of its descendants.</td><td><code>td:matches(\\d+)</code> finds table cells containing digits. <code>div:matches((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
- * <tr><td><code>:containsOwn(<em>text</em>)</code></td><td>elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants.</td><td><code>p:containsOwn(SwiftSoup)</code> finds p elements with own text "SwiftSoup".</td></tr>
- * <tr><td><code>:matchesOwn(<em>regex</em>)</code></td><td>elements whose own text matches the specified regular expression. The text must appear in the found element, not any of its descendants.</td><td><code>td:matchesOwn(\\d+)</code> finds table cells directly containing digits. <code>div:matchesOwn((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
- * <tr><td></td><td>The above may be combined in any order and with other selectors</td><td><code>.light:contains(name):eq(0)</code></td></tr>
- * <tr><td colspan="3"><h3>Structural pseudo selectors</h3></td></tr>
- * <tr><td><code>:root</code></td><td>The element that is the root of the document. In HTML, this is the <code>html</code> element</td><td><code>:root</code></td></tr>
- * <tr><td><code>:nth-child(<em>a</em>n+<em>b</em>)</code></td><td><p>elements that have <code><em>a</em>n+<em>b</em>-1</code> siblings <b>before</b> it in the document tree, for any positive integer or zero value of <code>n</code>, and has a parent element. For values of <code>a</code> and <code>b</code> greater than zero, this effectively divides the element's children into groups of a elements (the last group taking the remainder), and selecting the <em>b</em>th element of each group. For example, this allows the selectors to address every other row in a table, and could be used to alternate the color of paragraph text in a cycle of four. The <code>a</code> and <code>b</code> values must be integers (positive, negative, or zero). The index of the first child of an element is 1.</p>
- * In addition to this, <code>:nth-child()</code> can take <code>odd</code> and <code>even</code> as arguments instead. <code>odd</code> has the same signification as <code>2n+1</code>, and <code>even</code> has the same signification as <code>2n</code>.</td><td><code>tr:nth-child(2n+1)</code> finds every odd row of a table. <code>:nth-child(10n-1)</code> the 9th, 19th, 29th, etc, element. <code>li:nth-child(5)</code> the 5h li</td></tr>
- * <tr><td><code>:nth-last-child(<em>a</em>n+<em>b</em>)</code></td><td>elements that have <code><em>a</em>n+<em>b</em>-1</code> siblings <b>after</b> it in the document tree. Otherwise like <code>:nth-child()</code></td><td><code>tr:nth-last-child(-n+2)</code> the last two rows of a table</td></tr>
- * <tr><td><code>:nth-of-type(<em>a</em>n+<em>b</em>)</code></td><td>pseudo-class notation represents an element that has <code><em>a</em>n+<em>b</em>-1</code> siblings with the same expanded element name <em>before</em> it in the document tree, for any zero or positive integer value of n, and has a parent element</td><td><code>img:nth-of-type(2n+1)</code></td></tr>
- * <tr><td><code>:nth-last-of-type(<em>a</em>n+<em>b</em>)</code></td><td>pseudo-class notation represents an element that has <code><em>a</em>n+<em>b</em>-1</code> siblings with the same expanded element name <em>after</em> it in the document tree, for any zero or positive integer value of n, and has a parent element</td><td><code>img:nth-last-of-type(2n+1)</code></td></tr>
- * <tr><td><code>:first-child</code></td><td>elements that are the first child of some other element.</td><td><code>div {@literal >} p:first-child</code></td></tr>
- * <tr><td><code>:last-child</code></td><td>elements that are the last child of some other element.</td><td><code>ol {@literal >} li:last-child</code></td></tr>
- * <tr><td><code>:first-of-type</code></td><td>elements that are the first sibling of its type in the list of children of its parent element</td><td><code>dl dt:first-of-type</code></td></tr>
- * <tr><td><code>:last-of-type</code></td><td>elements that are the last sibling of its type in the list of children of its parent element</td><td><code>tr {@literal >} td:last-of-type</code></td></tr>
- * <tr><td><code>:only-child</code></td><td>elements that have a parent element and whose parent element hasve no other element children</td><td></td></tr>
- * <tr><td><code>:only-of-type</code></td><td> an element that has a parent element and whose parent element has no other element children with the same expanded element name</td><td></td></tr>
- * <tr><td><code>:empty</code></td><td>elements that have no children at all</td><td></td></tr>
- * </table>
- *
- * @see Element#select(String)
- */
+
 @available(*, deprecated, renamed: "CssSelector")
 typealias Selector = CssSelector
 
+/**
+ CSS-like element selector, that finds elements matching a query.
+ 
+ # CssSelector syntax
+ 
+ A selector is a chain of simple selectors, separated by combinators. Selectors are **case insensitive** (including against
+ elements, attributes, and attribute values).
+ 
+ The universal selector (`*`) is implicit when no element selector is supplied (i.e. `*.header` and `.header`
+ are equivalent).
+ 
+ Pattern | Matches | Example
+ --------|---------|---------
+ `*`     | any element | `*`
+ `tag`   | elements with the given tag name | `div`
+ `*\|E`  | elements of type E in any namespace _ns_ | `*\|name` finds `<fb:name>` elements
+ `#id`   | elements with attribute ID of "id" | `div#wrap`, `#logo`
+ `.class` | elements with a class name of "class" | `div.left`, `.result`
+ `.class` | elements with a class name of "class" | `div.left`, `.result`
+ `[attr]` | elements with an attribute named "attr" (with any value) | `a[href]`, `[title]`
+ `[^attrPrefix]` | elements with an attribute name starting with "attrPrefix". Use to find elements with HTML5 datasets | `[^data-]`, `div[^data-]`
+ `[attr=val]` | elements with an attribute named "attr", and value equal to "val" | `img[width=500]`, `a[rel=nofollow]`
+ `[attr="val"]` | elements with an attribute named "attr", and value equal to "val" | `span[hello="Cleveland"][goodbye="Columbus"]`, `a[rel="nofollow"]`
+ `[attr^=valPrefix]` | elements with an attribute named "attr", and value starting with "valPrefix" | `a[href^=http:]`
+ `[attr$=valSuffix]` | elements with an attribute named "attr", and value ending with "valSuffix" | `img[src$=.png]`
+ `[attr*=valContaining]` | elements with an attribute named "attr", and value containing "valContaining" | `a[href*=/search/]`
+ `[attr~=regex]` | elements with an attribute named "attr", and value matching the regular expression | `img[src~=(?i)\\.(png|jpe?g)]`
+ | | The above may be combined in any order | `div.header[title]`
+ **Combinators** |||
+ `E F`   | an F element descended from an E element | `div a`, `.logo h1`
+ `E > F` | an F direct child of E | `ol > li`
+ `E + F` | an F element immediately preceded by sibling E | `li + li`, `div.head + div`
+ `E ~ F` | an F element preceded by sibling E | `h1 ~ p`
+ `E, F, G` | all matching elements E, F, or G | `a[href], div, h3`
+ **Pseudo selectors** |||
+ `:lt(n)` | elements whose sibling index is less than _n_ | `td:lt(3)` finds the first 3 cells of each row
+ `:gt(n)` | elements whose sibling index is greater than _n_ | `td:gt(1)` finds cells after skipping the first two
+ `:eq(n)` | elements whose sibling index is equal to _n_ | `td:eq(0)` finds the first cell of each row
+ `:has(selector)` | elements that contains at least one element matching the _selector_ | `div:has(p)` finds divs that contain p elements
+ `:not(selector)` | elements that do not match the _selector_. See also ``Elements/not(_:)-(String)`` | `div:not(.logo)` finds all divs that do not have the "logo" class. `div:not(:has(div))` finds divs that do not contain divs.
+ `:contains(text)` | elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants. | `p:contains(SwiftSoup)` finds p elements containing the text "SwiftSoup".
+ `:matches(regex)` | elements whose text matches the specified regular expression. The text may appear in the found element, or any of its descendants. | `td:matches(\\d+)` finds table cells containing digits. `div:matches((?i)login)` finds divs containing the text, case insensitively.
+ `:containsOwn(text)` | elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants. | `p:containsOwn(SwiftSoup)` finds p elements with own text "SwiftSoup".
+ `:containsData(data)` | elements that contain the specified data. The contents of `script` and `style` elements, and comment nodes (etc) are considered data nodes, not text nodes. The search is case insensitive. The data may appear in the found element, or any of its descendants. | `script:containsData(SwiftSoup)` finds script elements containing the data "SwiftSoup".
+ `:matchesOwn(regex)` | elements whose own text matches the specified regular expression. The text must appear in the found element, not any of its descendants. | `td:matchesOwn(\\d+)` finds table cells directly containing digits. `div:matchesOwn((?i)login)` finds divs containing the text, case insensitively.
+ | | The above may be combined in any order and with other selectors | `.light:contains(name):eq(0)`
+ **Structural pseudo selectors** |||
+ `:root` | The element that is the root of the document. In HTML, this is the `html` element | `:root`
+ `:nth-child(An+B)` | elements that have _A_ n + _B_ - 1 siblings _before_ it in the document tree, for any positive integer or zero value of `n`, and has a parent element. For values of `A` and `B` greater than zero, this effectively divides the element's children into groups of a elements (the last group taking the remainder), and selecting the _b_ th element of each group. For example, this allows the selectors to address every other row in a table, and could be used to alternate the color of paragraph text in a cycle of four. The `A` and `B` values must be integers (positive, negative, or zero). The index of the first child of an element is 1. In addition to this, `:nth-child()` can take `odd` and `even` as arguments instead. `odd` has the same signification as `2n+1`, and `even` has the same signification as `2n`. | `tr:nth-child(2n+1)` finds every odd row of a table. `:nth-child(10n-1)` the 9th, 19th, 29th, etc, element. `li:nth-child(5)` the 5th `li`
+ `:nth-last-child(An+B)` | elements that have _A_ n + _B_ - 1 siblings _after_ it in the document tree. Otherwise like `:nth-child()` | `tr:nth-last-child(-n+2)` the last two rows of a table
+ `:nth-of-type(An+B)` | pseudo-class notation represents an element that has _A_ n + _B_ - 1 siblings with the same expanded element name _before_ it in the document tree, for any zero or positive integer value of n, and has a parent element | `img:nth-of-type(2n+1)`
+ `:nth-last-of-type(An+B)` | pseudo-class notation represents an element that has _A_ n + _B_ - 1 siblings with the same expanded element name _after_ it in the document tree, for any zero or positive integer value of n, and has a parent element | `img:nth-last-of-type(2n+1)`
+ `:first-child` | elements that are the first child of some other element. | `div > p:first-child`
+ `:last-child` | elements that are the last child of some other element. | `ol > li:last-child`
+ `:first-of-type` | elements that are the first sibling of its type in the list of children of its parent element | `dl dt:first-of-type`
+ `:last-of-type` | elements that are the last sibling of its type in the list of children of its parent element | `tr > td:last-of-type`
+ `:only-child` | elements that have a parent element and whose parent element hasve no other element children | 
+ `:only-of-type` |  an element that has a parent element and whose parent element has no other element children with the same expanded element name | 
+ `:empty` | elements that have no children at all | 
+ 
+ - seealso: ``Element/select(_:)-(String)``
+ */
 open class CssSelector {
     private let evaluator: Evaluator
     private let root: Element
+    
+    private static let selectorCacheCapacity: Int = 128
+    private final class SelectorCache: @unchecked Sendable {
+        var items: [SelectorQueryKey: Evaluator] = [:]
+        var order: [SelectorQueryKey] = []
+        let lock = NSLock()
+    }
+    private static let selectorCache = SelectorCache()
+    private static let fastQueryCacheCapacity: Int = selectorCacheCapacity
+    private final class FastQueryCache: @unchecked Sendable {
+        var items: [SelectorQueryKey: FastQueryPlan] = [:]
+        var order: [SelectorQueryKey] = []
+        let lock = NSLock()
+    }
+    private static let fastQueryCache = FastQueryCache()
 
     private init(_ query: String, _ root: Element)throws {
-        let query = query.trim()
-        try Validate.notEmpty(string: query)
+        let query = TokenQueue.trimCssQuery(query)
+        try Validate.notEmpty(string: query.utf8Array)
 
-        self.evaluator = try QueryParser.parse(query)
+        self.evaluator = try CssSelector.cachedEvaluatorTrimmed(query)
 
         self.root = root
     }
@@ -94,15 +107,39 @@ open class CssSelector {
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param query CSS selector
-     * @param root  root element to descend into
-     * @return matching elements, empty if none
-     * @throws CssSelector.SelectorParseException (unchecked) on an invalid CSS query.
+     Find elements matching selector.
+     
+     - parameter query: CSS selector
+     - parameter root:  root element to descend into
+     - returns: matching elements, empty if none
+     - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
-        return try CssSelector(query, root).select()
+        let query = TokenQueue.trimCssQuery(query)
+        try Validate.notEmpty(string: query.utf8Array)
+        DebugTrace.log("CssSelector.select(query): \(query)")
+        if let cached = root.cachedSelectorResult(query) {
+            DebugTrace.log("CssSelector.select(query): selector cache hit")
+            return cached
+        }
+        if let tagBytes = simpleTagQueryBytes(query) {
+            DebugTrace.log("CssSelector.select(query): simple tag fast path")
+            let result = try root.getElementsByTagNormalized(tagBytes)
+            root.storeSelectorResult(query, result)
+            return result
+        }
+        if let fast = try fastSelectQuery(query, root, query) {
+            DebugTrace.log("CssSelector.select(query): fast path hit")
+            root.storeSelectorResult(query, fast)
+            return fast
+        }
+        DebugTrace.log("CssSelector.select(query): slow path")
+        let evaluator = try cachedEvaluatorTrimmed(query)
+        let result = try select(evaluator, root)
+        if root.parentNode == nil || !dependsOnFollowingSiblings(evaluator) {
+            root.storeSelectorResult(query, result)
+        }
+        return result
     }
 
     @available(iOS 13.0.0, *)
@@ -111,36 +148,91 @@ open class CssSelector {
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param evaluator CSS selector
-     * @param root root element to descend into
-     * @return matching elements, empty if none
+     Find elements matching selector.
+     
+     - parameter evaluator: CSS selector
+     - parameter root: root element to descend into
+     - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
         return try CssSelector(evaluator, root).select()
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param query CSS selector
-     * @param roots root elements to descend into
-     * @return matching elements, empty if none
+     Find elements matching selector.
+     
+     - parameter query: CSS selector
+     - parameter roots: root elements to descend into
+     - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
-        try Validate.notEmpty(string: query)
-        let evaluator: Evaluator = try QueryParser.parse(query)
-        var elements: Array<Element> = Array<Element>()
-        var seenElements: Array<Element> = Array<Element>()
-        // dedupe elements by identity, not equality
+        let query = TokenQueue.trimCssQuery(query)
+        try Validate.notEmpty(string: query.utf8Array)
+        if roots.count == 1, let root = roots.first {
+            if let cached = root.cachedSelectorResult(query) {
+                return cached
+            }
+        }
+        if let tagBytes = simpleTagQueryBytes(query) {
+            if roots.count == 1, let root = roots.first {
+                let result = try root.getElementsByTagNormalized(tagBytes)
+                root.storeSelectorResult(query, result)
+                return result
+            }
+            var elements: Array<Element> = []
+            var seenIds = Set<ObjectIdentifier>()
+            seenIds.reserveCapacity(roots.count * 8)
+            for root in roots {
+                let found = try root.getElementsByTagNormalized(tagBytes)
+                for el in found.array() {
+                    let id = ObjectIdentifier(el)
+                    if seenIds.contains(id) {
+                        continue
+                    }
+                    seenIds.insert(id)
+                    elements.append(el)
+                }
+            }
+            return Elements(elements)
+        }
+        if let fast = try fastSelectQuery(query, roots, query) {
+            if roots.count == 1, let root = roots.first {
+                root.storeSelectorResult(query, fast)
+            }
+            return fast
+        }
+        let evaluator: Evaluator = try cachedEvaluatorTrimmed(query)
+        let result = try self.select(evaluator, roots)
+        if roots.count == 1, let root = roots.first,
+           root.parentNode == nil || !dependsOnFollowingSiblings(evaluator) {
+            root.storeSelectorResult(query, result)
+        }
+        return result
+    }
 
+    /**
+     Find elements matching an evaluator.
+     
+     - parameter evaluator: Query evaluator
+     - parameter roots: root elements to descend into
+     - seealso: ``QueryParser``
+     - returns: matching elements, empty if none
+     */
+    public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
+        if roots.count == 1, let root = roots.first {
+            return try select(evaluator, root)
+        }
+        var elements: Array<Element> = []
+        var seenIds = Set<ObjectIdentifier>()
+        seenIds.reserveCapacity(roots.count * 8)
+        // dedupe elements by identity, not equality
         for root: Element in roots {
             let found: Elements = try select(evaluator, root)
-            for  el: Element in found.array() {
-                if (!seenElements.contains(el)) {
+            for el: Element in found.array() {
+                let id = ObjectIdentifier(el)
+                if !seenIds.contains(id) {
+                    seenIds.insert(id)
                     elements.append(el)
-                    seenElements.append(el)
                 }
             }
         }
@@ -148,7 +240,990 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
+        DebugTrace.log("CssSelector.select(evaluator): \(evaluator)")
+        if let fast = try CssSelector.fastSelect(evaluator, root) {
+            DebugTrace.log("CssSelector.select(evaluator): fast path hit")
+            return fast
+        }
+        DebugTrace.log("CssSelector.select(evaluator): collector path")
         return try Collector.collect(evaluator, root)
+    }
+    
+    // Attribute changes outside a selection subtree do not invalidate its result
+    // cache. Sibling-relative :has can observe those changes, so retain parsed
+    // evaluator caching but bypass result snapshots for attached subtree roots.
+    private static func dependsOnFollowingSiblings(_ evaluator: Evaluator) -> Bool {
+        if let has = evaluator as? StructuralEvaluator.Has, has.searchesFollowingSiblings { return true }
+        if let combined = evaluator as? CombiningEvaluator {
+            return combined.evaluators.contains(where: dependsOnFollowingSiblings)
+        }
+        if let structural = evaluator as? StructuralEvaluator {
+            return dependsOnFollowingSiblings(structural.evaluator)
+        }
+        return false
+    }
+
+    private static func cachedEvaluatorTrimmed(_ query: String) throws -> Evaluator {
+        let key = SelectorQueryKey(query)
+        selectorCache.lock.lock()
+        if let cached = selectorCache.items[key] {
+            selectorCache.lock.unlock()
+            return cached
+        }
+        selectorCache.lock.unlock()
+        
+        let parsed = try QueryParser.parse(query)
+        
+        selectorCache.lock.lock()
+        if selectorCache.items[key] == nil {
+            selectorCache.items[key] = parsed
+            selectorCache.order.append(key)
+            if selectorCache.order.count > selectorCacheCapacity {
+                let overflow = selectorCache.order.count - selectorCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = selectorCache.order.removeFirst()
+                        selectorCache.items.removeValue(forKey: removedKey)
+                    }
+                }
+            }
+        }
+        selectorCache.lock.unlock()
+        return parsed
+    }
+
+    private indirect enum FastQueryPlan: Sendable {
+        case none
+        case all
+        case id([UInt8])
+        case className([UInt8])
+        case classes([UInt8], [[UInt8]])
+        case tag([UInt8], Token.Tag.TagId?)
+        case tagClass([UInt8], Token.Tag.TagId?, [UInt8])
+        case tagClasses([UInt8], Token.Tag.TagId?, [UInt8], [[UInt8]])
+        case tagId([UInt8], Token.Tag.TagId?, [UInt8])
+        case attr([UInt8])
+        case tagAttr([UInt8], Token.Tag.TagId?, [UInt8])
+        case attrValue([UInt8], [UInt8], String, String)
+        case tagAttrValue([UInt8], Token.Tag.TagId?, [UInt8], [UInt8], String, String)
+        case descendant(FastQueryPlan, FastQueryPlan)
+        
+        func apply(_ root: Element) throws -> Elements? {
+            DebugTrace.log("FastQueryPlan.apply: \(self)")
+            switch self {
+            case .none:
+                return nil
+            case .all:
+                return try root.getAllElements()
+            case .id(let idBytes):
+                return root.getElementsById(idBytes)
+            case .className(let className):
+                return root.getElementsByClassNormalizedBytes(className)
+            case .classes(let firstClass, let otherClasses):
+                let classElements = root.getElementsByClassNormalizedBytes(firstClass)
+                if classElements.isEmpty { return classElements }
+                if otherClasses.isEmpty { return classElements }
+                let output = Elements()
+                output.reserveCapacity(classElements.size())
+                for el in classElements.array() {
+                    var matchesAll = true
+                    for className in otherClasses where !el.hasClass(className) {
+                        matchesAll = false
+                        break
+                    }
+                    if matchesAll {
+                        output.add(el)
+                    }
+                }
+                return output
+            case .tag(let tagBytes, _):
+                return try root.getElementsByTagNormalized(tagBytes)
+            case .tagClass(let tagBytes, let tagId, let className):
+                let classElements = root.getElementsByClassNormalizedBytes(className)
+                if classElements.isEmpty { return classElements }
+                let output = Elements()
+                output.reserveCapacity(classElements.size())
+                for el in classElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .tagClasses(let tagBytes, let tagId, let firstClass, let otherClasses):
+                let classElements = root.getElementsByClassNormalizedBytes(firstClass)
+                if classElements.isEmpty { return classElements }
+                let output = Elements()
+                output.reserveCapacity(classElements.size())
+                for el in classElements.array() {
+                    if !CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                        continue
+                    }
+                    var matchesAll = true
+                    for className in otherClasses where !el.hasClass(className) {
+                        matchesAll = false
+                        break
+                    }
+                    if matchesAll {
+                        output.add(el)
+                    }
+                }
+                return output
+            case .tagId(let tagBytes, let tagId, let idBytes):
+                let idElements = root.getElementsById(idBytes)
+                if idElements.isEmpty { return idElements }
+                let output = Elements()
+                output.reserveCapacity(idElements.size())
+                for el in idElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .attr(let attrBytes):
+                return root.getElementsByAttributeNormalized(attrBytes)
+            case .tagAttr(let tagBytes, let tagId, let attrBytes):
+                let attrElements = root.getElementsByAttributeNormalized(attrBytes)
+                if attrElements.isEmpty { return attrElements }
+                let output = Elements()
+                output.reserveCapacity(attrElements.size())
+                for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .attrValue(let keyBytes, let valueBytes, let key, let value):
+                return try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
+            case .tagAttrValue(let tagBytes, let tagId, let keyBytes, let valueBytes, let key, let value):
+                let attrElements = try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
+                if attrElements.isEmpty { return attrElements }
+                let output = Elements()
+                output.reserveCapacity(attrElements.size())
+                for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .descendant(let left, let right):
+                guard CssSelector.isSimplePlan(left), CssSelector.isSimplePlan(right) else {
+                    return nil
+                }
+                guard let candidates = try right.apply(root) else {
+                    return nil
+                }
+                if candidates.isEmpty {
+                    return candidates
+                }
+                guard let leftElements = try left.apply(root) else {
+                    return nil
+                }
+                if leftElements.isEmpty {
+                    return Elements()
+                }
+                let leftCount = leftElements.size()
+                if leftCount == 1 {
+                    let target = leftElements.get(0)
+                    if case .all = right {
+                        let output = Elements()
+                        let children = target.childNodes
+                        if !children.isEmpty {
+                            var stack: ContiguousArray<Element> = []
+                            stack.reserveCapacity(children.count)
+                            var i = children.count
+                            while i > 0 {
+                                i &-= 1
+                                if let childEl = children[i] as? Element {
+                                    stack.append(childEl)
+                                }
+                            }
+                            while let el = stack.popLast() {
+                                output.add(el)
+                                let children = el.childNodes
+                                var j = children.count
+                                while j > 0 {
+                                    j &-= 1
+                                    if let childEl = children[j] as? Element {
+                                        stack.append(childEl)
+                                    }
+                                }
+                            }
+                        }
+                        return output
+                    }
+                    let output = Elements()
+                    output.reserveCapacity(candidates.size())
+                    for el in candidates.array() {
+                        var parent = el.parent()
+                        var matched = false
+                        while let current = parent {
+                            if current === target {
+                                matched = true
+                                break
+                            }
+                            parent = current.parent()
+                        }
+                        if matched {
+                            output.add(el)
+                        }
+                    }
+                    return output
+                }
+                let candidateCount = candidates.size()
+                if leftCount <= 8 || candidateCount <= 16 {
+                    let leftArray = leftElements.array()
+                    let output = Elements()
+                    output.reserveCapacity(candidateCount)
+                    for el in candidates.array() {
+                        var parent = el.parent()
+                        var matched = false
+                        while let current = parent {
+                            for ancestor in leftArray where current === ancestor {
+                                matched = true
+                                break
+                            }
+                            if matched { break }
+                            parent = current.parent()
+                        }
+                        if matched {
+                            output.add(el)
+                        }
+                    }
+                    return output
+                }
+                var leftIds = Set<ObjectIdentifier>()
+                leftIds.reserveCapacity(leftCount)
+                for el in leftElements.array() {
+                    leftIds.insert(ObjectIdentifier(el))
+                }
+                let output = Elements()
+                output.reserveCapacity(candidateCount)
+                for el in candidates.array() {
+                    var parent = el.parent()
+                    var matched = false
+                    while let current = parent {
+                        if leftIds.contains(ObjectIdentifier(current)) {
+                            matched = true
+                            break
+                        }
+                        parent = current.parent()
+                    }
+                    if matched {
+                        output.add(el)
+                    }
+                }
+                return output
+            }
+        }
+    }
+    
+    @inline(__always)
+    private static func matchesTagBytes(_ element: Element, _ tagBytes: [UInt8], _ tagId: Token.Tag.TagId?) -> Bool {
+        if let tagId, tagId != .none {
+            let elTagId = element._tag.tagId
+            if elTagId != .none {
+                return elTagId == tagId
+            }
+        }
+        return element.tagNameNormalUTF8() == tagBytes
+    }
+
+    @inline(__always)
+    private static func isSimplePlan(_ plan: FastQueryPlan) -> Bool {
+        switch plan {
+        case .none, .descendant:
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Ultra-fast path for very simple selectors without combinators or pseudos.
+    private static func fastSelectQuery(_ query: String, _ root: Element, _ trimmed: String) throws -> Elements? {
+        DebugTrace.log("CssSelector.fastSelectQuery: \(query)")
+        let plan = cachedFastQueryPlan(trimmed)
+        DebugTrace.log("CssSelector.fastSelectQuery: plan=\(plan)")
+        return try plan.apply(root)
+    }
+
+    @inline(__always)
+    private static func simpleTagQueryBytes(_ trimmed: String) -> [UInt8]? {
+        if trimmed.isEmpty {
+            return nil
+        }
+        if let lookup = UTF8Arrays.tagLookup[trimmed] {
+            return lookup
+        }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(trimmed.utf8.count)
+        var sawNonAscii = false
+        for b in trimmed.utf8 {
+            switch b {
+            case TokeniserStateVars.upperAByte...TokeniserStateVars.upperZByte:
+                bytes.append(b &+ 32)
+            case TokeniserStateVars.lowerAByte...TokeniserStateVars.lowerZByte,
+                 TokeniserStateVars.zeroByte...TokeniserStateVars.nineByte,
+                 TokeniserStateVars.hyphenByte,
+                 TokeniserStateVars.underscoreByte:
+                bytes.append(b)
+            default:
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    sawNonAscii = true
+                    break
+                }
+                return nil
+            }
+        }
+        if sawNonAscii {
+            let lowercased = trimmed.lowercased()
+            if lowercased != trimmed, let lookup = UTF8Arrays.tagLookup[lowercased] {
+                return lookup
+            }
+            return nil
+        }
+        return bytes.isEmpty ? nil : bytes
+    }
+
+    private static func cachedFastQueryPlan(_ trimmed: String) -> FastQueryPlan {
+        let key = SelectorQueryKey(trimmed)
+        fastQueryCache.lock.lock()
+        if let cached = fastQueryCache.items[key] {
+            fastQueryCache.lock.unlock()
+            DebugTrace.log("CssSelector.cachedFastQueryPlan: cache hit")
+            return cached
+        }
+        fastQueryCache.lock.unlock()
+        
+        DebugTrace.log("CssSelector.cachedFastQueryPlan: cache miss")
+        let plan = fastQueryPlan(trimmed)
+        
+        fastQueryCache.lock.lock()
+        if fastQueryCache.items[key] == nil {
+            fastQueryCache.items[key] = plan
+            fastQueryCache.order.append(key)
+            if fastQueryCache.order.count > fastQueryCacheCapacity {
+                let overflow = fastQueryCache.order.count - fastQueryCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = fastQueryCache.order.removeFirst()
+                        fastQueryCache.items.removeValue(forKey: removedKey)
+                    }
+                }
+            }
+        }
+        fastQueryCache.lock.unlock()
+        return plan
+    }
+    
+    private static func fastQueryPlan(_ query: String) -> FastQueryPlan {
+        DebugTrace.log("CssSelector.fastQueryPlan: \(query)")
+        let trimmed = query
+        if trimmed.isEmpty {
+            return .none
+        }
+        var hasWhitespace = false
+        var sawNonAscii = false
+        for b in trimmed.utf8 {
+            switch b {
+            case TokeniserStateVars.commaByte,
+                 TokeniserStateVars.greaterThanByte,
+                 TokeniserStateVars.plusByte,
+                 TokeniserStateVars.tildeByte,
+                 TokeniserStateVars.colonByte,
+                 TokeniserStateVars.pipeByte: // , > + ~ : |
+                return .none
+            case TokeniserStateVars.spaceByte,
+                 TokeniserStateVars.newLineByte,
+                 TokeniserStateVars.tabByte,
+                 TokeniserStateVars.carriageReturnByte: // space, \n, \t, \r
+                hasWhitespace = true
+            default:
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    sawNonAscii = true
+                    break
+                }
+            }
+            if sawNonAscii {
+                break
+            }
+        }
+        if sawNonAscii {
+            for ch in trimmed {
+                switch ch {
+                case ",", ">", "+", "~", ":", "|":
+                    return .none
+                case " ", "\n", "\t", "\r":
+                    hasWhitespace = true
+                default:
+                    break
+                }
+            }
+        }
+        if hasWhitespace {
+            if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
+                let leftPlan = fastSimpleQueryPlan(leftToken)
+                if case .none = leftPlan { return .none }
+                let rightPlan = fastSimpleQueryPlan(rightToken)
+                if case .none = rightPlan { return .none }
+                return .descendant(leftPlan, rightPlan)
+            }
+            return .none
+        }
+        return fastSimpleQueryPlan(trimmed[...])
+    }
+
+    @inline(__always)
+    private static func isWhitespace(_ ch: Character) -> Bool {
+        switch ch {
+        case " ", "\n", "\t", "\r":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func splitDescendantTokens(_ query: Substring) -> (Substring, Substring)? {
+        var bracketDepth = 0
+        var quote: Character? = nil
+        var splitStart: String.Index? = nil
+        var splitEnd: String.Index? = nil
+        var idx = query.startIndex
+        while idx < query.endIndex {
+            let ch = query[idx]
+            if let quoteChar = quote {
+                if ch == quoteChar {
+                    quote = nil
+                }
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "\"" || ch == "'" {
+                quote = ch
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "[" {
+                bracketDepth += 1
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "]" {
+                if bracketDepth > 0 {
+                    bracketDepth -= 1
+                }
+                idx = query.index(after: idx)
+                continue
+            }
+            if bracketDepth == 0, isWhitespace(ch) {
+                if splitStart != nil {
+                    return nil
+                }
+                splitStart = idx
+                var wsEnd = query.index(after: idx)
+                while wsEnd < query.endIndex, isWhitespace(query[wsEnd]) {
+                    wsEnd = query.index(after: wsEnd)
+                }
+                splitEnd = wsEnd
+                idx = wsEnd
+                continue
+            }
+            idx = query.index(after: idx)
+        }
+        guard let splitStart, let splitEnd else {
+            return nil
+        }
+        let left = query[..<splitStart]
+        let right = query[splitEnd...]
+        if left.isEmpty || right.isEmpty {
+            return nil
+        }
+        return (left, right)
+    }
+
+    private static func fastSimpleQueryPlan(_ trimmed: Substring) -> FastQueryPlan {
+        DebugTrace.log("CssSelector.fastSimpleQueryPlan: \(trimmed)")
+        if trimmed.isEmpty {
+            return .none
+        }
+        @inline(__always)
+        func isIdentChar(_ ch: Character) -> Bool {
+            switch ch {
+            case "a"..."z", "A"..."Z", "0"..."9", "-", "_":
+                return true
+            default:
+                return false
+            }
+        }
+        @inline(__always)
+        func isSimpleIdent(_ s: Substring) -> Bool {
+            guard !s.isEmpty else { return false }
+            for ch in s {
+                if !isIdentChar(ch) {
+                    return false
+                }
+            }
+            return true
+        }
+        @inline(__always)
+        func asciiClassPartsLowercased(_ bytes: [UInt8]) -> [[UInt8]]? {
+            var parts: [[UInt8]] = []
+            var current: [UInt8] = []
+            current.reserveCapacity(bytes.count)
+            var i = 0
+            while i < bytes.count {
+                let b = bytes[i]
+                if b == TokeniserStateVars.dotByte { // "."
+                    if current.isEmpty {
+                        return nil
+                    }
+                    parts.append(current)
+                    current = []
+                } else if (b >= TokeniserStateVars.zeroByte && b <= TokeniserStateVars.nineByte) || // 0-9
+                            (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) || // A-Z
+                            (b >= TokeniserStateVars.lowerAByte && b <= TokeniserStateVars.lowerZByte) || // a-z
+                            b == TokeniserStateVars.hyphenByte || b == TokeniserStateVars.underscoreByte { // - _
+                    let lower = (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ? (b &+ 32) : b
+                    current.append(lower)
+                } else {
+                    return nil
+                }
+                i &+= 1
+            }
+            if current.isEmpty {
+                return nil
+            }
+            parts.append(current)
+            return parts
+        }
+        @inline(__always)
+        func splitClassList(_ s: Substring) -> [Substring]? {
+            if s.isEmpty {
+                return nil
+            }
+            var parts: [Substring] = []
+            var start = s.startIndex
+            var idx = s.startIndex
+            while idx < s.endIndex {
+                let ch = s[idx]
+                if ch == "." {
+                    if start == idx {
+                        return nil
+                    }
+                    let part = s[start..<idx]
+                    if !isSimpleIdent(part) {
+                        return nil
+                    }
+                    parts.append(part)
+                    start = s.index(after: idx)
+                    idx = start
+                    continue
+                }
+                if !isIdentChar(ch) {
+                    return nil
+                }
+                idx = s.index(after: idx)
+            }
+            if start == s.endIndex {
+                return nil
+            }
+            let tail = s[start..<s.endIndex]
+            if !isSimpleIdent(tail) {
+                return nil
+            }
+            parts.append(tail)
+            return parts
+        }
+        
+        if trimmed.first == "#" {
+            let id = trimmed.dropFirst()
+            if id.isEmpty {
+                return .none
+            }
+            // Only literal identifier bytes are safe here. Escapes and syntax
+            // must use the same parser as compound selectors, even when the
+            // document contains an ID equal to the unparsed query text.
+            var bytes: [UInt8] = []
+            bytes.reserveCapacity(id.utf8.count)
+            for byte in id.utf8 {
+                guard byte >= 0x80 || byte == 0x2D || byte == 0x5F ||
+                    (0x30...0x39).contains(byte) || (0x41...0x5A).contains(byte) ||
+                    (0x61...0x7A).contains(byte) else { return .none }
+                bytes.append(byte)
+            }
+            return .id(bytes)
+        }
+        if trimmed.first == "." {
+            let className = trimmed.dropFirst()
+            if className.isEmpty {
+                return .none
+            }
+            let classBytes = Array(className.utf8)
+            var asciiOnly = true
+            for b in classBytes {
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiOnly = false
+                    break
+                }
+                switch b {
+                case TokeniserStateVars.spaceByte,
+                     TokeniserStateVars.tabByte,
+                     TokeniserStateVars.newLineByte,
+                     TokeniserStateVars.carriageReturnByte,
+                     TokeniserStateVars.commaByte,
+                     TokeniserStateVars.greaterThanByte,
+                     TokeniserStateVars.plusByte,
+                     TokeniserStateVars.tildeByte,
+                     TokeniserStateVars.colonByte,
+                     TokeniserStateVars.leftBracketByte,
+                     TokeniserStateVars.hashByte:
+                    return .none
+                default:
+                    break
+                }
+            }
+            if asciiOnly {
+                if let parts = asciiClassPartsLowercased(classBytes) {
+                    let firstClassNormalized = parts[0]
+                    if parts.count == 1 {
+                        return .className(firstClassNormalized)
+                    }
+                    return .classes(firstClassNormalized, Array(parts.dropFirst()))
+                }
+            }
+            if let classParts = splitClassList(className) {
+                let firstClassBytes = Array(classParts[0].utf8)
+                let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
+                    ? firstClassBytes.lowercased()
+                    : firstClassBytes
+                if classParts.count == 1 {
+                    return .className(firstClassNormalized)
+                }
+                let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
+                    let bytes = Array(part.utf8)
+                    return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
+                }
+                return .classes(firstClassNormalized, otherClasses)
+            }
+            return .none
+        }
+        if trimmed == "*" {
+            return .all
+        }
+        
+        if let open = trimmed.firstIndex(of: "[") {
+            // The byte fast path only implements ASCII normalization. Delegate
+            // Unicode keys/values to the parser instead of selecting a different
+            // value when Unicode lowercasing or trimming changes the query.
+            guard trimmed.utf8.allSatisfy({ $0 < 0x80 }) else { return .none }
+            // Find the matching close bracket for the first '[', skipping quoted content.
+            // This correctly bails out for compound selectors like tag[a='x'][b='y'].
+            var scanIdx = trimmed.index(after: open)
+            var inQuote: Character? = nil
+            var close: String.Index? = nil
+            while scanIdx < trimmed.endIndex {
+                let ch = trimmed[scanIdx]
+                if let q = inQuote {
+                    if ch == q { inQuote = nil }
+                } else if ch == "'" || ch == "\"" {
+                    inQuote = ch
+                } else if ch == "]" {
+                    close = scanIdx
+                    break
+                }
+                scanIdx = trimmed.index(after: scanIdx)
+            }
+            guard let close, close == trimmed.index(before: trimmed.endIndex) else {
+                return .none
+            }
+            let tagPart = trimmed[..<open]
+            let attrPart = trimmed[trimmed.index(after: open)..<close]
+            if attrPart.isEmpty {
+                return .none
+            }
+            if let eq = attrPart.firstIndex(of: "=") {
+                if eq != attrPart.startIndex {
+                    let op = attrPart[attrPart.index(before: eq)]
+                    if op == "!" || op == "^" || op == "$" || op == "*" || op == "~" || op == "|" {
+                        return .none
+                    }
+                }
+                let keyPart = attrPart[..<eq]
+                var valuePart = attrPart[attrPart.index(after: eq)...]
+                if keyPart.isEmpty || valuePart.isEmpty {
+                    return .none
+                }
+                if (valuePart.first == "\"" && valuePart.last == "\"") || (valuePart.first == "'" && valuePart.last == "'") {
+                    valuePart = valuePart.dropFirst().dropLast()
+                }
+                if valuePart.isEmpty {
+                    return .none
+                }
+                let rawKeyBytes = Array(keyPart.utf8).trim()
+                let rawValueBytes = Array(valuePart.utf8).trim()
+                if rawKeyBytes.isEmpty || rawValueBytes.isEmpty {
+                    return .none
+                }
+                let keyBytes = Attributes.containsAsciiUppercase(rawKeyBytes) ? rawKeyBytes.lowercased() : rawKeyBytes
+                let valueBytes = Attributes.containsAsciiUppercase(rawValueBytes) ? rawValueBytes.lowercased() : rawValueBytes
+                let needsOriginal = keyBytes.starts(with: UTF8Arrays.absPrefix)
+                let key = needsOriginal ? String(keyPart) : ""
+                let value = needsOriginal ? String(valuePart) : ""
+                if tagPart.isEmpty {
+                    return .attrValue(keyBytes, valueBytes, key, value)
+                }
+                guard isSimpleIdent(tagPart) else { return .none }
+                let rawTagBytes = Array(tagPart.utf8).trim()
+                if rawTagBytes.isEmpty { return .none }
+                let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+                return .tagAttrValue(tagBytes, Token.Tag.tagIdForBytes(tagBytes), keyBytes, valueBytes, key, value)
+            }
+            guard isSimpleIdent(attrPart) else { return .none }
+            let rawAttrBytes = Array(attrPart.utf8).trim()
+            if rawAttrBytes.isEmpty { return .none }
+            let attrBytes = Attributes.containsAsciiUppercase(rawAttrBytes) ? rawAttrBytes.lowercased() : rawAttrBytes
+            if tagPart.isEmpty {
+                return .attr(attrBytes)
+            }
+            guard isSimpleIdent(tagPart) else { return .none }
+            let rawTagBytes = Array(tagPart.utf8).trim()
+            if rawTagBytes.isEmpty { return .none }
+            let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+            return .tagAttr(tagBytes, Token.Tag.tagIdForBytes(tagBytes), attrBytes)
+        }
+        
+        if let dot = trimmed.firstIndex(of: ".") {
+            let tagPart = trimmed[..<dot]
+            let classPart = trimmed[trimmed.index(after: dot)...]
+            let tagBytes = Array(tagPart.utf8)
+            let classBytes = Array(classPart.utf8)
+            var asciiTag = !tagBytes.isEmpty
+            for b in tagBytes {
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiTag = false
+                    break
+                }
+                if (b >= TokeniserStateVars.zeroByte && b <= TokeniserStateVars.nineByte) ||
+                    (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ||
+                    (b >= TokeniserStateVars.lowerAByte && b <= TokeniserStateVars.lowerZByte) ||
+                    b == TokeniserStateVars.hyphenByte || b == TokeniserStateVars.underscoreByte {
+                    continue
+                }
+                asciiTag = false
+                break
+            }
+            var asciiClass = !classBytes.isEmpty
+            if asciiClass {
+                for b in classBytes {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
+                        asciiClass = false
+                        break
+                    }
+                    switch b {
+                    case TokeniserStateVars.spaceByte,
+                         TokeniserStateVars.tabByte,
+                         TokeniserStateVars.newLineByte,
+                         TokeniserStateVars.carriageReturnByte,
+                         TokeniserStateVars.commaByte,
+                         TokeniserStateVars.greaterThanByte,
+                         TokeniserStateVars.plusByte,
+                         TokeniserStateVars.tildeByte,
+                         TokeniserStateVars.colonByte,
+                         TokeniserStateVars.leftBracketByte,
+                         TokeniserStateVars.hashByte:
+                        asciiClass = false
+                        break
+                    default:
+                        break
+                    }
+                    if !asciiClass { break }
+                }
+            }
+            if asciiTag, asciiClass, let parts = asciiClassPartsLowercased(classBytes) {
+                let tagLower: [UInt8] = {
+                    var out: [UInt8] = []
+                    out.reserveCapacity(tagBytes.count)
+                    for b in tagBytes {
+                        let lower = (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ? (b &+ 32) : b
+                        out.append(lower)
+                    }
+                    return out
+                }()
+                let firstClassNormalized = parts[0]
+                if parts.count == 1 {
+                    return .tagClass(tagLower, Token.Tag.tagIdForBytes(tagLower), firstClassNormalized)
+                }
+                return .tagClasses(tagLower, Token.Tag.tagIdForBytes(tagLower), firstClassNormalized, Array(parts.dropFirst()))
+            }
+            if isSimpleIdent(tagPart) {
+                if let classParts = splitClassList(classPart) {
+                    let rawTagBytes = Array(tagPart.utf8).trim()
+                    if rawTagBytes.isEmpty { return .none }
+                    let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+                    if tagBytes.isEmpty { return .none }
+                    let firstClassBytes = Array(classParts[0].utf8)
+                    let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
+                        ? firstClassBytes.lowercased()
+                        : firstClassBytes
+                    if classParts.count == 1 {
+                        return .tagClass(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized)
+                    }
+                    let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
+                        let bytes = Array(part.utf8)
+                        return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
+                    }
+                    return .tagClasses(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized, otherClasses)
+                }
+            }
+            return .none
+        }
+        if let hash = trimmed.firstIndex(of: "#") {
+            let tagPart = trimmed[..<hash]
+            let idPart = trimmed[trimmed.index(after: hash)...]
+            if isSimpleIdent(tagPart), isSimpleIdent(idPart) {
+                let idBytes = Array(idPart.utf8).trim()
+                if idBytes.isEmpty { return .none }
+                let rawTagBytes = Array(tagPart.utf8).trim()
+                if rawTagBytes.isEmpty { return .none }
+                let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+                if tagBytes.isEmpty { return .none }
+                return .tagId(tagBytes, Token.Tag.tagIdForBytes(tagBytes), idBytes)
+            }
+            return .none
+        }
+        if isSimpleIdent(trimmed[...]) {
+            let rawTagBytes = Array(trimmed.utf8).trim()
+            if rawTagBytes.isEmpty { return .none }
+            let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+            if tagBytes.isEmpty { return .none }
+            return .tag(tagBytes, Token.Tag.tagIdForBytes(tagBytes))
+        }
+        return .none
+    }
+
+    private static func fastSelectQuery(_ query: String, _ roots: Array<Element>, _ trimmed: String) throws -> Elements? {
+        let plan = cachedFastQueryPlan(trimmed)
+        if case .none = plan {
+            return nil
+        }
+        if roots.count == 1, let root = roots.first {
+            return try plan.apply(root)
+        }
+        var elements: Array<Element> = []
+        var seenIds = Set<ObjectIdentifier>()
+        seenIds.reserveCapacity(roots.count * 8)
+        for root in roots {
+            guard let found = try plan.apply(root) else {
+                return nil
+            }
+            for el in found.array() {
+                let id = ObjectIdentifier(el)
+                if seenIds.contains(id) {
+                    continue
+                }
+                seenIds.insert(id)
+                elements.append(el)
+            }
+        }
+        return Elements(elements)
+    }
+    
+    /// Fast‑path for simple selectors that map directly onto indexed queries.
+    /// Avoids full DOM traversal when the evaluator is a single primitive selector.
+    private static func fastSelect(_ evaluator: Evaluator, _ root: Element) throws -> Elements? {
+        if let eval = evaluator as? Evaluator.Tag, type(of: eval) == Evaluator.Tag.self {
+            return try root.getElementsByTag(eval.tagNameNormal)
+        }
+        if let eval = evaluator as? Evaluator.Id {
+            return root.getElementsById(eval.idBytes)
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            let key = eval.classNameBytes
+            let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
+            return root.getElementsByClassNormalizedBytes(normalized)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return root.getElementsByAttributeNormalized(eval.keyBytes)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            // Keep the already-parsed predicate for virtual attributes. Rebuilding
+            // it from normalized strings would lose valid quoted empty operands.
+            guard !eval.keyBytes.starts(with: UTF8Arrays.absPrefix) else { return nil }
+            return try root.getElementsByAttributeValueNormalized(
+                eval.keyBytes,
+                eval.valueBytes,
+                eval.key,
+                eval.value
+            )
+        }
+        if let eval = evaluator as? CombiningEvaluator.And {
+            return try fastSelectAnd(eval, root)
+        }
+        return nil
+    }
+
+    private struct IndexedCandidate {
+        let elements: Elements
+        let priority: Int
+        let evaluator: Evaluator
+    }
+
+    /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
+    /// This preserves document order while avoiding a full traversal in common selector shapes.
+    private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
+        var best: IndexedCandidate? = nil
+        for sub in evaluator.evaluators {
+            if let candidate = try indexedCandidate(for: sub, root) {
+                if best == nil || candidate.priority < best!.priority {
+                    best = candidate
+                }
+            }
+        }
+        guard let best else { return nil }
+
+        let output = Elements()
+        output.reserveCapacity(best.elements.size())
+        let skipEval = best.evaluator
+        for element in best.elements.array() {
+            var matchesAll = true
+            for sub in evaluator.evaluators {
+                if sub === skipEval {
+                    continue
+                }
+                // Preserve And.matches catch-and-continue behavior.
+                if (try? sub.matches(root, element)) == false {
+                    matchesAll = false
+                    break
+                }
+            }
+            if matchesAll {
+                output.add(element)
+            }
+        }
+        return output
+    }
+
+    private static func indexedCandidate(for evaluator: Evaluator, _ root: Element) throws -> IndexedCandidate? {
+        if let eval = evaluator as? Evaluator.Id {
+            return IndexedCandidate(elements: root.getElementsById(eval.idBytes), priority: 0, evaluator: evaluator)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            let normalizedKey = eval.keyBytes
+            guard Element.isHotAttributeKey(normalizedKey) else { return nil }
+            return IndexedCandidate(
+                elements: try root.getElementsByAttributeValueNormalized(
+                    eval.keyBytes,
+                    eval.valueBytes,
+                    eval.key,
+                    eval.value
+                ),
+                priority: 1,
+                evaluator: evaluator
+            )
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            let key = eval.classNameBytes
+            let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
+            return IndexedCandidate(elements: root.getElementsByClassNormalizedBytes(normalized), priority: 2, evaluator: evaluator)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return IndexedCandidate(elements: root.getElementsByAttributeNormalized(eval.keyBytes), priority: 3, evaluator: evaluator)
+        }
+        if let eval = evaluator as? Evaluator.Tag, type(of: eval) == Evaluator.Tag.self {
+            return IndexedCandidate(elements: try root.getElementsByTag(eval.tagNameNormal), priority: 4, evaluator: evaluator)
+        }
+        return nil
     }
 
     @available(iOS 13.0.0, *)
@@ -159,15 +1234,18 @@ open class CssSelector {
     // exclude set. package open so that Elements can implement .not() selector.
     static func filterOut(_ elements: Array<Element>, _ outs: Array<Element>) -> Elements {
         let output: Elements = Elements()
-        for el: Element in elements {
-            var found: Bool = false
-            for out: Element in outs {
-                if (el.equals(out)) {
-                    found = true
-                    break
-                }
+        if elements.count >= 64 && outs.count >= 64 {
+            // Element equality requires object identity. Keep input order and
+            // duplicates, but avoid rescanning a large exclusion list per item.
+            var excluded = Set<ObjectIdentifier>()
+            excluded.reserveCapacity(outs.count)
+            for el in outs { excluded.insert(ObjectIdentifier(el)) }
+            for el in elements where !excluded.contains(ObjectIdentifier(el)) {
+                output.add(el)
             }
-            if (!found) {
+        } else {
+            // Small or strongly asymmetric inputs do not amortize a hash table.
+            for el in elements where !outs.contains(el) {
                 output.add(el)
             }
         }

@@ -3,7 +3,6 @@
 //  SwifSoupTests
 //
 //  Created by Nabil Chatbi on 20/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
@@ -30,15 +29,6 @@ class StringUtilTest: XCTestCase {
 //			print("Error")
 //		}
 //	}
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
     func testJoin() {
         XCTAssertEqual("", StringUtil.join([""], sep: " "))
@@ -74,6 +64,14 @@ class StringUtilTest: XCTestCase {
         XCTAssertTrue(StringUtil.isNumeric("1234"))
     }
 
+    func testToIntAscii() {
+        XCTAssertEqual("123".utf8ArraySlice.toIntAscii(radix: 10), 123)
+        XCTAssertEqual("0A1f".utf8ArraySlice.toIntAscii(radix: 16), 0x0A1F)
+        XCTAssertEqual("z".utf8ArraySlice.toIntAscii(radix: 36), 35)
+        XCTAssertNil("12z".utf8ArraySlice.toIntAscii(radix: 10))
+        XCTAssertNil("12g".utf8ArraySlice.toIntAscii(radix: 16))
+    }
+
     func testIsWhitespace() {
         XCTAssertTrue(StringUtil.isWhitespace("\t"))
         XCTAssertTrue(StringUtil.isWhitespace("\n"))
@@ -94,13 +92,94 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("hello there", StringUtil.normaliseWhitespace("hello\nthere"))
     }
 
-    func testNormaliseWhiteSpaceHandlesHighSurrogates()throws {
+    func testNormaliseWhiteSpaceHandlesHighSurrogates() throws {
         let test71540chars = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a}  1"
         let test71540charsExpectedSingleWhitespace = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a} 1"
 
         XCTAssertEqual(test71540charsExpectedSingleWhitespace, StringUtil.normaliseWhitespace(test71540chars))
         let extractedText = try SwiftSoup.parse(test71540chars).text()
         XCTAssertEqual(test71540charsExpectedSingleWhitespace, extractedText)
+    }
+
+    func testAppendNormalisedWhitespaceNoWhitespaceSlice() {
+        let sb = StringBuilder()
+        let bytes = "alphaβ".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("alphaβ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceWithWhitespaceSlice() {
+        let sb = StringBuilder()
+        let bytes = " alpha \n beta ".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("alpha beta ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceNBSPBytesPath() {
+        let input = "a\u{00a0}b \t c\n"
+        let bytes = input.utf8Array
+        let sbSlice = StringBuilder()
+        var lastWasWhite = false
+        StringUtil.appendNormalisedWhitespace(sbSlice, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("a b c ", sbSlice.toString())
+
+        let sbString = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sbString, string: input, stripLeading: false)
+        XCTAssertEqual("a\u{00a0}b c ", sbString.toString())
+    }
+
+    func testAppendNormalisedWhitespacePreservesMultibyteArraySlice() {
+        let input = "  πβ   😀 \tζ "
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("πβ 😀 ζ ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceTrackingMultibyte() {
+        var lastWasWhite = true
+        let input = "  😀\tπ"
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("😀 π", sb.toString())
+        XCTAssertFalse(lastWasWhite)
+    }
+
+    func testAppendNormalisedWhitespaceBytes() {
+        let sb = StringBuilder()
+        let bytes = " alpha beta".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes, stripLeading: true)
+        XCTAssertEqual("alpha beta", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceTracking() {
+        var lastWasWhite = false
+        let sb1 = StringBuilder()
+        let bytes1 = "alpha beta gamma".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb1, string: bytes1[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha beta gamma", sb1.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = false
+        let sb2 = StringBuilder()
+        let bytes2 = " alpha beta".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb2, string: bytes2[...], stripLeading: true, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha beta", sb2.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = true
+        let sb3 = StringBuilder()
+        let bytes3 = " alpha".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb3, string: bytes3[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha", sb3.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = false
+        let sb4 = StringBuilder()
+        let bytes4 = "a  b".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb4, string: bytes4[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("a b", sb4.toString())
     }
 
     func testResolvesRelativeUrls() {
@@ -119,19 +198,14 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "./two.c"))
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "two.c"))
     }
-
-    static var allTests = {
-        return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testJoin", testJoin),
-            ("testPadding", testPadding),
-            ("testIsBlank", testIsBlank),
-            ("testIsNumeric", testIsNumeric),
-            ("testIsWhitespace", testIsWhitespace),
-            ("testNormaliseWhiteSpace", testNormaliseWhiteSpace),
-            ("testNormaliseWhiteSpaceHandlesHighSurrogates", testNormaliseWhiteSpaceHandlesHighSurrogates),
-            ("testResolvesRelativeUrls", testResolvesRelativeUrls)
-        ]
-    }()
-
+    
+    func testResolveEscaping() {
+        let source1 = "mailto:mail@example.com?subject=Job%20Requisition[NID]"
+        let source2 = "https://example.com?foo=one%20two["
+        
+        // Ideally, the `mailto` example would resolve it its input (preserving `[` and `]`).
+        // See https://github.com/scinfu/SwiftSoup/issues/268
+        XCTAssertEqual("mailto:mail@example.com?subject=Job%20Requisition%5BNID%5D", StringUtil.resolve("", relUrl: source1))
+        XCTAssertEqual("https://example.com?foo=one%20two%5B", StringUtil.resolve("", relUrl: source2))
+    }
 }

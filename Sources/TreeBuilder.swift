@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 24/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -13,55 +12,160 @@ public class TreeBuilder {
     var tokeniser: Tokeniser
     public var doc: Document // current doc we are building into
     public var stack: Array<Element> // the stack of open elements
-    public var baseUri: String // current base uri, for creating new elements
+    public var baseUri: [UInt8] // current base uri, for creating new elements
     public var currentToken: Token? // currentToken is used only for error tracking.
     public var errors: ParseErrorList // null when not tracking errors
     public var settings: ParseSettings
-
+    public var tracksSourceRanges: Bool = false
+    public var tracksErrors: Bool = false
+    @usableFromInline
+    var pendingAttributeElements: [Element] = []
+    
     private let start: Token.StartTag = Token.StartTag() // start tag to process
     private let end: Token.EndTag  = Token.EndTag()
-
+    
+    /// Bulk-build suppression flag
+    @usableFromInline
+    var isBulkBuilding: Bool = false
+    
+    
     public func defaultSettings() -> ParseSettings {preconditionFailure("This method must be overridden")}
-
+    
     public init() {
-        doc =  Document("")
-        reader = CharacterReader("")
-        tokeniser = Tokeniser(reader, nil)
+        doc =  Document([])
+        reader = CharacterReader([])
         stack = Array<Element>()
-        baseUri = ""
+        baseUri = []
         errors = ParseErrorList(0, 0)
         settings = ParseSettings(false, false)
+        tokeniser = Tokeniser(reader, nil, settings)
     }
-
-    public func initialiseParse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) {
+    
+    @inline(__always)
+    func beginBulkAppend() {
+        isBulkBuilding = true
+    }
+    
+    @inline(__always)
+    func endBulkAppend() {
+        isBulkBuilding = false
+    }
+    
+    public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         doc = Document(baseUri)
+        tracksSourceRanges = settings.tracksSourceRanges()
+        if tracksSourceRanges {
+            doc.sourceBuffer = SourceBuffer(input)
+        } else {
+            doc.sourceBuffer = nil
+        }
+        doc.parsedAsXml = false
         self.settings = settings
-        reader = CharacterReader(input)
+        let parseBuffer: [UInt8]
+        if tracksSourceRanges, let sourceBuffer = doc.sourceBuffer {
+            parseBuffer = sourceBuffer.bytes
+        } else {
+            parseBuffer = input
+        }
+        reader = CharacterReader(parseBuffer)
         self.errors = errors
-        tokeniser = Tokeniser(reader, errors)
+        tracksErrors = errors.getMaxSize() > 0
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
         stack = Array<Element>()
         self.baseUri = baseUri
+        pendingAttributeElements.removeAll(keepingCapacity: true)
     }
 
-    func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings)throws->Document {
-		initialiseParse(input, baseUri, errors, settings)
+    public func initialiseParse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
+        doc = Document(baseUri)
+        tracksSourceRanges = settings.tracksSourceRanges()
+        if tracksSourceRanges {
+            let copied = Array(input)
+            doc.sourceBuffer = SourceBuffer(copied)
+            reader = CharacterReader(copied)
+        } else {
+            doc.sourceBuffer = nil
+            reader = CharacterReader(input, owner: owner)
+        }
+        doc.parsedAsXml = false
+        self.settings = settings
+        self.errors = errors
+        tracksErrors = errors.getMaxSize() > 0
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
+        stack = Array<Element>()
+        self.baseUri = baseUri
+        pendingAttributeElements.removeAll(keepingCapacity: true)
+    }
+    
+    func parse(_ input: [UInt8], _ baseUri: [UInt8],
+               _ errors: ParseErrorList,
+               _ settings: ParseSettings) throws -> Document {
+        // Associate builder for node-level checks
+        doc.treeBuilder = self
+        
+        // Suppress per-append index invalidation; rebuild once at end
+        beginBulkAppend()
+        defer { endBulkAppend() }
+        
+        initialiseParse(input, baseUri, errors, settings)
         try runParser()
+        if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
+            for element in pendingAttributeElements {
+                element.attributes?.ensureMaterialized()
+            }
+            pendingAttributeElements.removeAll(keepingCapacity: true)
+        }
         return doc
     }
 
     @available(iOS 13.0.0, *)
     func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) async throws -> Document {
-        initialiseParse(input, baseUri, errors, settings)
+        doc.treeBuilder = self
+        beginBulkAppend()
+        defer { endBulkAppend() }
+
+        initialiseParse(input.utf8Array, baseUri.utf8Array, errors, settings)
         try await runParser()
+        if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
+            for element in pendingAttributeElements {
+                element.attributes?.ensureMaterialized()
+            }
+            pendingAttributeElements.removeAll(keepingCapacity: true)
+        }
         return doc
     }
 
-    public func runParser()throws {
+    func parse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8],
+               _ errors: ParseErrorList,
+               _ settings: ParseSettings) throws -> Document {
+        doc.treeBuilder = self
+        beginBulkAppend()
+        defer { endBulkAppend() }
+
+        initialiseParse(input, owner: owner, baseUri, errors, settings)
+        try runParser()
+        if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
+            for element in pendingAttributeElements {
+                element.attributes?.ensureMaterialized()
+            }
+            pendingAttributeElements.removeAll(keepingCapacity: true)
+        }
+        return doc
+    }
+    
+    @inline(__always)
+    func registerPendingAttributes(_ element: Element) {
+        guard !tracksSourceRanges else { return }
+        if let attributes = element.attributes,
+           attributes.pendingAttributesCount > 0 {
+            pendingAttributeElements.append(element)
+        }
+    }
+    
+    public func runParser() throws {
         while (true) {
             let token: Token = try tokeniser.read()
             try process(token)
-            token.reset()
-
             if (token.type == Token.TokenType.EOF) {
                 break
             }
@@ -70,10 +174,9 @@ public class TreeBuilder {
 
     @available(iOS 13.0, *)
     public func runParser() async throws {
-        while (true && !Task.isCancelled) {
+        while !Task.isCancelled {
             let token: Token = try tokeniser.read()
             try process(token)
-            token.reset()
 
             if (token.type == Token.TokenType.EOF) {
                 break
@@ -82,18 +185,27 @@ public class TreeBuilder {
     }
 
     @discardableResult
+    @inline(__always)
     public func process(_ token: Token)throws->Bool {preconditionFailure("This method must be overridden")}
-
+    
     @discardableResult
-    public func processStartTag(_ name: String)throws->Bool {
+    @inline(__always)
+    public func processStartTag(_ name: [UInt8]) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().name(name))
         }
         return try process(start.reset().name(name))
     }
-
+    
     @discardableResult
-    public func processStartTag(_ name: String, _ attrs: Attributes)throws->Bool {
+    @inline(__always)
+    public func processStartTag(_ name: String) throws -> Bool {
+        return try processStartTag(name.utf8Array)
+    }
+    
+    @discardableResult
+    @inline(__always)
+    public func processStartTag(_ name: [UInt8], _ attrs: Attributes) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().nameAttr(name, attrs))
         }
@@ -101,18 +213,32 @@ public class TreeBuilder {
         start.nameAttr(name, attrs)
         return try process(start)
     }
-
+    
     @discardableResult
-    public func processEndTag(_ name: String)throws->Bool {
-    if (currentToken === end) { // don't recycle an in-use token
-    return try process(Token.EndTag().name(name))
+    @inline(__always)
+    public func processStartTag(_ name: String, _ attrs: Attributes) throws -> Bool {
+        return try processStartTag(name.utf8Array, attrs)
+    }
+    
+    @discardableResult
+    @inline(__always)
+    public func processEndTag(_ name: [UInt8]) throws -> Bool {
+        if (currentToken === end) { // don't recycle an in-use token
+            return try process(Token.EndTag().name(name))
+        }
+        
+        return try process(end.reset().name(name))
     }
 
-    return try process(end.reset().name(name))
+    
+    @discardableResult
+    @inline(__always)
+    public func processEndTag(_ name: String) throws -> Bool {
+        return try processEndTag(name.utf8Array)
     }
-
+    
+    @inline(__always)
     public func currentElement() -> Element? {
-        let size: Int = stack.count
-        return size > 0 ? stack[size-1] : nil
+        return stack.last
     }
 }

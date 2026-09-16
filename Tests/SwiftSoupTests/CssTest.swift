@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 11/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import XCTest
@@ -45,56 +44,126 @@ class CssTest: XCTestCase {
 		html  = try! SwiftSoup.parse(htmlString)
 	}
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
-	func testFirstChild()throws {
+	func testFirstChild() throws {
 		try check(html.select("#pseudo :first-child"), "1")
 		try check(html.select("html:first-child"))
+		
+		// See issue #274. Tests whether `:first-child` returns the correct number of nodes.
+		let html = """
+<div class="models">
+	<a class="model" href="https://cat.com">
+		<img title="" data-original-title="NAME-A">
+	</a>
+	<a class="model" href="https://duck.com">
+		<span title="" data-original-title="NAME-B">
+	</a>
+	<a class="model" href="https://example.com">
+		<span title="" data-original-title="NAME-C">
+			<span title="" data-original-title="NAME-D"></span>
+			<span title="" data-original-title="NAME-E"></span>
+		</span>
+		<span data-original-title="NAME-F"></span>
+	</a>
+</div>
+"""
+		
+		let doc: Document = try SwiftSoup.parse(html)
+		let creatives = try doc.select(".models .model")
+		var count = 0
+		for creative in creatives {
+			let collection = try creative.select(":first-child")
+			let first = try creative.select(":first-child").first()!
+			
+			switch count {
+			case 0:
+				XCTAssertEqual(collection.count, 1, "The `:first-child` selector should return exactly one element here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-A")
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-A")
+
+			case 1:
+				XCTAssertEqual(collection.count, 1, "The `:first-child` selector should return exactly one element here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-B")
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-B")
+				
+			case 2:
+				XCTAssertEqual(collection.count, 2, "The `:first-child` selector should return exactly two elements here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-C") // First match, first level below the anchor
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-C")
+				XCTAssertEqual(try collection.last()?.attr("data-original-title"), "NAME-D")
+				
+			default:
+				XCTFail("Too many iterations")
+			}
+			
+			count += 1
+		}
 	}
 
-	func testLastChild()throws {
-        try! check(html.select("#pseudo :last-child"), "10")
-        try! check(html.select("html:last-child"))
+	func testLastChild() throws {
+		try check(html.select("#pseudo :last-child"), "10")
+		try check(html.select("html:last-child"))
+		
+		let html = """
+		<div class="info-wrap">
+			<div>
+				<p>Author (s): </p>
+				<p>
+					<a href="###">John Doe</a>
+				</p>
+			</div>
+		</div>
+		"""
+		
+		let doc: Document = try SwiftSoup.parse(html)
+		let elementArray = try doc.select("div.info-wrap > div")
+		XCTAssertEqual(elementArray.count, 1)
+		
+		let div = elementArray.first()!
+		let label = try div.select("> p:first-child").text()
+		XCTAssertEqual(label, "Author (s):")
+		
+		let value = try div.select("> p:last-child").text()
+		XCTAssertEqual(value, "John Doe")
+		
+		// Should match the second `p` and its `a` since the later is also a last child. The `div` itself should not get matched.
+		let matched = try div.select(":last-child")
+		XCTAssertEqual(matched.count, 2)
+		XCTAssertEqual(matched.first()?.tagName(), "p")
+		XCTAssertEqual(matched.last?.tagName(), "a")
 	}
 
-	func testNthChild_simple()throws {
+	func testNthChild_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#pseudo :nth-child(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthOfType_unknownTag()throws {
+	func testNthOfType_unknownTag() throws {
 		for i in 1...10 {
 			try check(html.select("#type svg:nth-of-type(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthLastChild_simple()throws {
+	func testNthLastChild_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#pseudo :nth-last-child(\(i))"), "\(11-i)")
 		}
 	}
 
-	func testNthOfType_simple()throws {
+	func testNthOfType_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#type p:nth-of-type(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthLastOfType_simple()throws {
+	func testNthLastOfType_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#type :nth-last-of-type(\(i))"), "\(11-i)", "\(11-i)", "\(11-i)", "\(11-i)")
 		}
 	}
 
-	func testNthChild_advanced()throws {
+	func testNthChild_advanced() throws {
 		try check(html.select("#pseudo :nth-child(-5)"))
 		try check(html.select("#pseudo :nth-child(odd)"), "1", "3", "5", "7", "9")
 		try check(html.select("#pseudo :nth-child(2n-1)"), "1", "3", "5", "7", "9")
@@ -107,7 +176,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#pseudo :nth-child(+5)"), "5")
 	}
 
-	func testNthOfType_advanced()throws {
+	func testNthOfType_advanced() throws {
 		try check(html.select("#type :nth-of-type(-5)"))
 		try check(html.select("#type p:nth-of-type(odd)"), "1", "3", "5", "7", "9")
 		try check(html.select("#type em:nth-of-type(2n-1)"), "1", "3", "5", "7", "9")
@@ -120,7 +189,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#type :nth-of-type(+5)"), "5", "5", "5", "5")
 	}
 
-	func testNthLastChild_advanced()throws {
+	func testNthLastChild_advanced() throws {
 		try check(html.select("#pseudo :nth-last-child(-5)"))
 		try check(html.select("#pseudo :nth-last-child(odd)"), "2", "4", "6", "8", "10")
 		try check(html.select("#pseudo :nth-last-child(2n-1)"), "2", "4", "6", "8", "10")
@@ -134,7 +203,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#pseudo :nth-last-child(+5)"), "6")
 	}
 
-	func testNthLastOfType_advanced()throws {
+	func testNthLastOfType_advanced() throws {
 		try check(html.select("#type :nth-last-of-type(-5)"))
 		try check(html.select("#type p:nth-last-of-type(odd)"), "2", "4", "6", "8", "10")
 		try check(html.select("#type em:nth-last-of-type(2n-1)"), "2", "4", "6", "8", "10")
@@ -148,15 +217,15 @@ class CssTest: XCTestCase {
 		try check(html.select("#type :nth-last-of-type(+5)"), "6", "6", "6", "6")
 	}
 
-	func testFirstOfType()throws {
+	func testFirstOfType() throws {
 		try check(html.select("div:not(#only) :first-of-type"), "1", "1", "1", "1", "1")
 	}
 
-	func testLastOfType()throws {
+	func testLastOfType() throws {
 		try check(html.select("div:not(#only) :last-of-type"), "10", "10", "10", "10", "10")
 	}
 
-	func testEmpty()throws {
+	func testEmpty() throws {
 		let sel: Elements = try html.select(":empty")
 		XCTAssertEqual(3, sel.size())
 		XCTAssertEqual("head", sel.get(0).tagName())
@@ -164,7 +233,7 @@ class CssTest: XCTestCase {
 		XCTAssertEqual("p", sel.get(2).tagName())
 	}
 
-	func testOnlyChild()throws {
+	func testOnlyChild() throws {
 		let sel: Elements = try html.select("span :only-child")
 		XCTAssertEqual(1, sel.size())
 		XCTAssertEqual("br", sel.get(0).tagName())
@@ -172,7 +241,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#only :only-child"), "only")
 	}
 
-	func testOnlyOfType()throws {
+	func testOnlyOfType() throws {
 		let sel: Elements = try html.select(":only-of-type")
 		XCTAssertEqual(6, sel.size())
 		XCTAssertEqual("head", sel.get(0).tagName())
@@ -196,7 +265,7 @@ class CssTest: XCTestCase {
 		}
 	}
 
-	func testRoot()throws {
+	func testRoot() throws {
 		let sel: Elements = try html.select(":root")
 		XCTAssertEqual(1, sel.size())
 		XCTAssertNotNil(sel.get(0))
@@ -207,27 +276,26 @@ class CssTest: XCTestCase {
 		XCTAssertNotNil(sel2.get(0))
 		try XCTAssertEqual(Tag.valueOf("body"), sel2.get(0).tag())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testFirstChild", testFirstChild),
-			("testLastChild", testLastChild),
-			("testNthChild_simple", testNthChild_simple),
-			("testNthOfType_unknownTag", testNthOfType_unknownTag),
-			("testNthLastChild_simple", testNthLastChild_simple),
-			("testNthOfType_simple", testNthOfType_simple),
-			("testNthLastOfType_simple", testNthLastOfType_simple),
-			("testNthChild_advanced", testNthChild_advanced),
-			("testNthOfType_advanced", testNthOfType_advanced),
-			("testNthLastChild_advanced", testNthLastChild_advanced),
-			("testNthLastOfType_advanced", testNthLastOfType_advanced),
-			("testFirstOfType", testFirstOfType),
-			("testLastOfType", testLastOfType),
-			("testEmpty", testEmpty),
-			("testOnlyChild", testOnlyChild),
-			("testOnlyOfType", testOnlyOfType),
-			("testRoot", testRoot)
-		]
-	}()
+	
+	func testEvaluators() throws {
+		let query1 = "#type > p"
+		let eval1 = try QueryParser.parse(query1)
+		XCTAssertEqual(try html.select(query1).count, 10)
+		XCTAssertEqual(try html.select(eval1).count, 10)
+		
+		let query2 = "div"
+		let eval2 = try QueryParser.parse(query2)
+		let query3 = "p"
+		let eval3 = try QueryParser.parse(query3)
+		
+		let elements2a = try html.select(query2)
+		let elements2b = try html.select(eval2)
+		XCTAssertEqual(elements2a.count, 3)
+		XCTAssertEqual(elements2a, elements2b)
+		
+		let elements3a = try elements2a.select(query3)
+		let elements3b = try elements2b.select(eval3)
+		XCTAssertEqual(elements3a.count, 20)
+		XCTAssertEqual(elements3a, elements3b)
+	}
 }

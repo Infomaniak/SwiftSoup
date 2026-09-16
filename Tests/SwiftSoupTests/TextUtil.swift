@@ -3,11 +3,14 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 03/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import Foundation
 @testable import SwiftSoup
+
+private let _crashTraceInstalled: Void = {
+    CrashTrace.installIfNeeded()
+}()
 
 class TextUtil {
 	public static func stripNewlines(_ text: String) -> String {

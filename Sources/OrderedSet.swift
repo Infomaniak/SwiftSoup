@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 import Foundation
 
@@ -11,17 +10,13 @@ import Foundation
 public class OrderedSet<T: Hashable> {
 	public typealias Index = Int
 	fileprivate var contents = [T: Index]() // Needs to have a value of Index instead of Void for fast removals
-	fileprivate var sequencedContents = Array<UnsafeMutablePointer<T>>()
+	fileprivate var sequencedContents = [T]()
 
 	/**
 	Inititalizes an empty ordered set.
 	- returns:     An empty ordered set.
 	*/
 	public init() { }
-
-	deinit {
-		removeAllObjects()
-	}
 
 	/**
 	Initializes a new ordered set with the order and contents
@@ -35,10 +30,7 @@ public class OrderedSet<T: Hashable> {
 		for object in sequence {
 			if contents[object] == nil {
 				contents[object] = contents.count
-
-				let pointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
-				pointer.initialize(to: object)
-				sequencedContents.append(pointer)
+				sequencedContents.append(object)
 			}
 		}
 	}
@@ -47,10 +39,7 @@ public class OrderedSet<T: Hashable> {
 		for object in elements {
 			if contents[object] == nil {
 				contents[object] = contents.count
-
-				let pointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
-				pointer.initialize(to: object)
-				sequencedContents.append(pointer)
+				sequencedContents.append(object)
 			}
 		}
 	}
@@ -75,14 +64,13 @@ public class OrderedSet<T: Hashable> {
 	*/
 	public func append(_ object: T) {
 
-		if let lastIndex = index(of: object) {
-			remove(object)
-			insert(object, at: lastIndex)
+		if let index = contents.removeValue(forKey: object) {
+			// Keep the position, but replace both stored representatives of an equal value.
+			contents[object] = index
+			sequencedContents[index] = object
 		} else {
 			contents[object] = contents.count
-			let pointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
-			pointer.initialize(to: object)
-			sequencedContents.append(pointer)
+			sequencedContents.append(object)
 		}
 	}
 
@@ -105,22 +93,11 @@ public class OrderedSet<T: Hashable> {
 	- parameter    object: The object to be removed.
 	*/
 	public func remove(_ object: T) {
-		if let index = contents[object] {
-			contents[object] = nil
-            #if !swift(>=4.1)
-                sequencedContents[index].deallocate(capacity: 1)
-            #else
-                sequencedContents[index].deallocate()
-            #endif
-            
+		if let index = contents.removeValue(forKey: object) {
 			sequencedContents.remove(at: index)
 
-			for (object, i) in contents {
-				if i < index {
-					continue
-				}
-
-				contents[object] = i - 1
+			for i in index..<sequencedContents.count {
+				contents[sequencedContents[i]] = i
 			}
 		}
 	}
@@ -146,7 +123,7 @@ public class OrderedSet<T: Hashable> {
 			fatalError("Attempting to remove an object at an index that does not exist")
 		}
 
-		remove(sequencedContents[index].pointee)
+		remove(sequencedContents[index])
 	}
 
 	/**
@@ -154,14 +131,6 @@ public class OrderedSet<T: Hashable> {
 	*/
 	public func removeAllObjects() {
 		contents.removeAll()
-
-        for sequencedContent in sequencedContents {
-            #if !swift(>=4.1)
-            sequencedContent.deallocate(capacity: 1)
-            #else
-            sequencedContent.deallocate()
-            #endif
-        }
 		sequencedContents.removeAll()
 	}
 
@@ -174,11 +143,14 @@ public class OrderedSet<T: Hashable> {
 	public func swapObject(_ first: T, with second: T) {
 		if let firstPosition = contents[first] {
 			if let secondPosition = contents[second] {
-				contents[first] = secondPosition
-				contents[second] = firstPosition
-
-				sequencedContents[firstPosition].pointee = second
-				sequencedContents[secondPosition].pointee = first
+				guard firstPosition != secondPosition else { return }
+				// Arguments identify members; a swap must not replace the stored
+				// representatives with equal-but-distinct lookup values.
+				let storedFirst = sequencedContents[firstPosition]
+				let storedSecond = sequencedContents[secondPosition]
+				contents[storedFirst] = secondPosition
+				contents[storedSecond] = firstPosition
+				sequencedContents.swapAt(firstPosition, secondPosition)
 			}
 		}
 	}
@@ -200,18 +172,32 @@ public class OrderedSet<T: Hashable> {
 	}
 
 	/**
-	Tests if a the ordered set is a subset of another sequence.
+	Tests if the ordered set is a subset of another sequence.
+	Collections retain their membership checks; other sequences are consumed
+	at most once and stop when all members are found. Empty receivers do not
+	consume the input. Temporary storage is bounded by the receiver count.
 	- parameter    sequence:   The sequence to check.
 	- returns:                 true if the sequence contains all objects contained in the receiver, otherwise false.
 	*/
 	public func isSubset<S: Sequence>(of sequence: S) -> Bool where S.Iterator.Element == T {
-		for (object, _) in contents {
-			if !sequence.contains(object) {
-				return false
+		guard !contents.isEmpty else { return true }
+		// Collections are restartable and may answer contains without scanning
+		// (notably Set and Range). A singleton needs only one membership query,
+		// even for a single-pass Sequence, and needs no temporary membership set.
+		if contents.count == 1 || sequence is any Collection {
+			for object in contents.keys {
+				if !sequence.contains(object) { return false }
 			}
+			return true
 		}
-
-		return true
+		// Sequence need not be restartable. Track required members while
+		// consuming a single iterator, without retaining the input's tail.
+		var remaining = Set(contents.keys)
+		for object in sequence {
+			remaining.remove(object)
+			if remaining.isEmpty { return true }
+		}
+		return false
 	}
 
 	/**
@@ -233,23 +219,32 @@ public class OrderedSet<T: Hashable> {
 				return
 			}
 
-			let adjustment = position > index ? -1 : 1
-
-			var currentIndex = position
-			while currentIndex != index {
-				let nextIndex = currentIndex + adjustment
-
-				let firstObject = sequencedContents[currentIndex].pointee
-				let secondObject = sequencedContents[nextIndex].pointee
-
-				sequencedContents[currentIndex].pointee = secondObject
-				sequencedContents[nextIndex].pointee = firstObject
-
-				contents[firstObject] = nextIndex
-				contents[secondObject] = currentIndex
-
-				currentIndex += adjustment
+			// Keep the stored representative, not a possibly equal incoming object.
+			let moved = sequencedContents[position]
+			// A one-step move needs only the original direct swap, not a shift loop.
+			if position == index - 1 || position == index + 1 {
+				let displaced = sequencedContents[index]
+				sequencedContents[position] = displaced
+				sequencedContents[index] = moved
+				contents[moved] = index
+				contents[displaced] = position
+				return
 			}
+			if position < index {
+				for i in position..<index {
+					let shifted = sequencedContents[i + 1]
+					sequencedContents[i] = shifted
+					contents[shifted] = i
+				}
+			} else {
+				for i in stride(from: position, to: index, by: -1) {
+					let shifted = sequencedContents[i - 1]
+					sequencedContents[i] = shifted
+					contents[shifted] = i
+				}
+			}
+			sequencedContents[index] = moved
+			contents[moved] = index
 		}
 	}
 
@@ -285,11 +280,15 @@ public class OrderedSet<T: Hashable> {
 			return
 		}
 
-		// Append our object, then swap them until its at the end.
-		append(object)
+		if index == count {
+			append(object)
+			return
+		}
 
-		for i in (index..<count-1).reversed() {
-			swapObject(self[i], with: self[i+1])
+		// Shift array storage once, then update each affected index once.
+		sequencedContents.insert(object, at: index)
+		for i in index..<sequencedContents.count {
+			contents[sequencedContents[i]] = i
 		}
 	}
 
@@ -311,9 +310,7 @@ public class OrderedSet<T: Hashable> {
 		for object in objects {
 			if contents[object] == nil {
 				let seqIdx = index + addedObjectCount
-				let element = UnsafeMutablePointer<T>.allocate(capacity: 1)
-				element.initialize(to: object)
-				sequencedContents.insert(element, at: seqIdx)
+				sequencedContents.insert(object, at: seqIdx)
 				contents[object] = seqIdx
 				addedObjectCount += 1
 			}
@@ -322,13 +319,13 @@ public class OrderedSet<T: Hashable> {
 		// Now we'll remove duplicates and update the shifted objects position in the contents
 		// dictionary.
 		for i in index + addedObjectCount..<count {
-			contents[sequencedContents[i].pointee] = i
+			contents[sequencedContents[i]] = i
 		}
 	}
 
 	/// Returns the last object in the set, or `nil` if the set is empty.
 	public var last: T? {
-		return sequencedContents.last?.pointee
+		return sequencedContents.last
 	}
 }
 
@@ -343,12 +340,12 @@ extension OrderedSet {
 	}
 
 	public var isEmpty: Bool {
-		return count == 0
+		return contents.isEmpty
 	}
 
 	public var first: T? {
 		guard count > 0 else { return nil }
-		return sequencedContents[0].pointee
+		return sequencedContents[0]
 	}
 
 	public func index(after i: Int) -> Int {
@@ -365,20 +362,28 @@ extension OrderedSet {
 
 	public subscript(index: Index) -> T {
 		get {
-			return sequencedContents[index].pointee
+			return sequencedContents[index]
 		}
 
 		set {
-			let previousCount = contents.count
-			contents[sequencedContents[index].pointee] = nil
-			contents[newValue] = index
-
-			// If the count is reduced we used an existing value, and need to sync up sequencedContents
-			if contents.count == previousCount {
-				sequencedContents[index].pointee = newValue
-			} else {
-				sequencedContents.remove(at: index)
-			}
+            let oldValue = sequencedContents[index]
+            if oldValue == newValue {
+                return
+            }
+            if let _ = contents[newValue] {
+                // remove old value and keep existing newValue entry
+                contents[oldValue] = nil
+                sequencedContents.remove(at: index)
+                if index < sequencedContents.count {
+                    for i in index..<sequencedContents.count {
+                        contents[sequencedContents[i]] = i
+                    }
+                }
+            } else {
+                contents[oldValue] = nil
+                contents[newValue] = index
+                sequencedContents[index] = newValue
+            }
 		}
 	}
 
@@ -394,21 +399,21 @@ extension  OrderedSet: Sequence {
 
 public struct OrderedSetGenerator<T: Hashable>: IteratorProtocol {
 	public typealias Element = T
-	private var generator: IndexingIterator<Array<UnsafeMutablePointer<T>>>
+	private var generator: IndexingIterator<[T]>
 
 	public init(set: OrderedSet<T>) {
 		generator = set.sequencedContents.makeIterator()
 	}
 
 	public mutating func next() -> Element? {
-		return generator.next()?.pointee
+		return generator.next()
 	}
 }
 
 extension OrderedSetGenerator where T: Comparable {}
 
 public func +<T, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
-	let joinedSet = lhs
+	let joinedSet = OrderedSet(sequence: lhs)
 	joinedSet.append(contentsOf: rhs)
 
 	return joinedSet
@@ -419,7 +424,7 @@ public func +=<T, S: Sequence> (lhs: inout OrderedSet<T>, rhs: S) where S.Iterat
 }
 
 public func -<T, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
-	let purgedSet = lhs
+	let purgedSet = OrderedSet(sequence: lhs)
 	purgedSet.remove(rhs)
 
 	return purgedSet

@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 09/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -12,16 +11,7 @@ import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
-	func testEscape()throws {
+	func testEscape() throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »"
 
 		let escapedAscii = Entities.escape(text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base))
@@ -76,33 +66,37 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual(text, escapedUtf)
 	}
 
-	func testNotMissingMultis()throws {
+	func testNotMissingMultis() throws {
 		let text: String = "&nparsl;"
 		let un: String = "\u{2AFD}\u{20E5}"
 		XCTAssertEqual(un, try Entities.unescape(text))
 	}
 
-	func testnotMissingSupplementals()throws {
+	func testnotMissingSupplementals() throws {
 		let text: String = "&npolint; &qfr;"
 		let un: String = "⨔ 𝔮"//+"\u{D835}\u{DD2E}" // 𝔮
 		XCTAssertEqual(un, try Entities.unescape(text))
 	}
 
-	func testUnescape()throws {
+	func testUnescape() throws {
 		let text: String = "Hello &AElig; &amp;&LT&gt; &reg &angst; &angst &#960; &#960 &#x65B0; there &! &frac34; &copy; &COPY;"
 		XCTAssertEqual("Hello Æ &<> ® Å &angst π π 新 there &! ¾ © ©", try Entities.unescape(text))
 
 		XCTAssertEqual("&0987654321; &unknown", try Entities.unescape("&0987654321; &unknown"))
 	}
 
-	func testStrictUnescape()throws { // for attributes, enforce strict unescaping (must look like &#xxx; , not just &#xxx)
-		let text: String = "Hello &amp= &amp;"
-		XCTAssertEqual("Hello &amp= &", try Entities.unescape(string: text, strict: true))
-		XCTAssertEqual("Hello &= &", try Entities.unescape(text))
-		XCTAssertEqual("Hello &= &", try Entities.unescape(string: text, strict: false))
+	func testStrictUnescape() throws { // for attributes, enforce strict unescaping (must look like &#xxx; , not just &#xxx)
+//        let text: String = "&a"
+//        XCTAssertEqual("&a", try Entities.unescape(string: text, strict: true))
+//        let text2: String = "&amp" // accepted as a "base" form entity, unlike "extended" forms
+//        XCTAssertEqual("&", try Entities.unescape(string: text2, strict: true))
+		let text3: String = "Hello &amp= &amp;"
+		XCTAssertEqual("Hello &amp= &", try Entities.unescape(string: text3, strict: true))
+		XCTAssertEqual("Hello &= &", try Entities.unescape(text3))
+		XCTAssertEqual("Hello &= &", try Entities.unescape(string: text3, strict: false))
 	}
 
-	func testCaseSensitive()throws {
+	func testCaseSensitive() throws {
 		let unescaped: String = "Ü ü & &"
 		XCTAssertEqual("&Uuml; &uuml; &amp; &amp;",
 		             Entities.escape(unescaped, OutputSettings().charset(.ascii).escapeMode(Entities.EscapeMode.extended)))
@@ -111,14 +105,14 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("Ü ü & &", try Entities.unescape(escaped))
 	}
 
-	func testQuoteReplacements()throws {
+	func testQuoteReplacements() throws {
 		let escaped: String = "&#92; &#36;"
 		let unescaped: String = "\\ $"
 
 		XCTAssertEqual(unescaped, try Entities.unescape(escaped))
 	}
 
-	func testLetterDigitEntities()throws {
+	func testLetterDigitEntities() throws {
 		let html: String = "<p>&sup1;&sup2;&sup3;&frac14;&frac12;&frac34;</p>"
 		let doc: Document = try SwiftSoup.parse(html)
 		doc.outputSettings().charset(.ascii)
@@ -129,12 +123,12 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("¹²³¼½¾", try p.html())
 	}
 
-	func testNoSpuriousDecodes()throws {
+	func testNoSpuriousDecodes() throws {
 		let string: String = "http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2"
 		XCTAssertEqual(string, try Entities.unescape(string))
 	}
 
-	func testUscapesGtInXmlAttributesButNotInHtml()throws {
+	func testUscapesGtInXmlAttributesButNotInHtml() throws {
 		// https://github.com/jhy/jsoup/issues/528 - < is OK in HTML attribute values, but not in XML
 
 		let docHtml: String = "<a title='<p>One</p>'>One</a>"
@@ -148,22 +142,42 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
 
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testEscape", testEscape),
-			("testXhtml", testXhtml),
-			("testGetByName", testGetByName),
-			("testEscapeSupplementaryCharacter", testEscapeSupplementaryCharacter),
-			("testNotMissingMultis", testNotMissingMultis),
-			("testnotMissingSupplementals", testnotMissingSupplementals),
-			("testUnescape", testUnescape),
-			("testStrictUnescape", testStrictUnescape),
-			("testCaseSensitive", testCaseSensitive),
-			("testQuoteReplacements", testQuoteReplacements),
-			("testLetterDigitEntities", testLetterDigitEntities),
-			("testNoSpuriousDecodes", testNoSpuriousDecodes),
-			("testUscapesGtInXmlAttributesButNotInHtml", testUscapesGtInXmlAttributesButNotInHtml)
-		]
-	}()
+	func testNbspEscapedWhenOnlySpecialChar() {
+		// When nbsp is the only special character present, the fast-path needsEscape
+		// check must still detect it and escape it (not output raw U+00A0 bytes).
+		let text = "hello\u{A0}world"
+
+		// Default: UTF-8, extended mode → &nbsp;
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text))
+
+		// Base mode, UTF-8 → &nbsp;
+		let base = OutputSettings().charset(.utf8).escapeMode(Entities.EscapeMode.base)
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text, base))
+
+		// XHTML mode, UTF-8 → &#xa0;
+		let xhtml = OutputSettings().charset(.utf8).escapeMode(Entities.EscapeMode.xhtml)
+		XCTAssertEqual("hello&#xa0;world", Entities.escape(text, xhtml))
+
+		// ASCII charset → should also escape
+		let ascii = OutputSettings().charset(.ascii).escapeMode(Entities.EscapeMode.base)
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text, ascii))
+	}
+
+	func testNbspPreservedThroughParseAndSerialize() throws {
+		// Round-trip: parse HTML containing &nbsp;, then serialize back.
+		// The output must contain the &nbsp; entity, not raw U+00A0 bytes.
+		let html = "<p>hello&nbsp;world</p>"
+		let doc = try SwiftSoup.parse(html)
+		let p = try doc.select("p").first()!
+		let output = try p.html()
+
+		XCTAssertEqual("hello&nbsp;world", output)
+		XCTAssertFalse(output.contains("\u{A0}"), "Output should not contain raw U+00A0")
+	}
+
+	func testMultipleNbspEscaped() {
+		// Multiple nbsp characters, no other special chars
+		let text = "a\u{A0}b\u{A0}c"
+		XCTAssertEqual("a&nbsp;b&nbsp;c", Entities.escape(text))
+	}
 }
