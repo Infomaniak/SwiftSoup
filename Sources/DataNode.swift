@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -12,73 +11,247 @@ import Foundation
  A data node, for contents of style, script tags etc, where contents should not show in text().
  */
 open class DataNode: Node {
-    private static let DATA_KEY: String  = "data"
+    private static let DATA_KEY  = "data".utf8Array
+    private var rawDataSlice: ByteSlice? = nil
+    private var rawDataSlices: [ByteSlice]? = nil
+    private var rawDataSlicesCount: Int = 0
 
     /**
      Create a new DataNode.
-     @param data data contents
-     @param baseUri base URI
+     - parameter data: data contents
+     - parameter baseUri: base URI
      */
-    public init(_ data: String, _ baseUri: String) {
+    public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
-            try attributes?.put(DataNode.DATA_KEY, data)
+            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data)
         } catch {}
 
     }
 
+    @usableFromInline
+    internal init(slice: ByteSlice, baseUri: [UInt8]) {
+        super.init(baseUri)
+        rawDataSlice = slice
+        rawDataSlices = nil
+        rawDataSlicesCount = 0
+    }
+
+    @usableFromInline
+    internal convenience init(slice: ArraySlice<UInt8>, baseUri: [UInt8]) {
+        self.init(slice: ByteSlice.fromArraySlice(slice), baseUri: baseUri)
+    }
+
+    @inline(__always)
+    open override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
+    @inline(__always)
     open override func nodeName() -> String {
         return "#data"
     }
 
     /**
      Get the data contents of this node. Will be unescaped and with original new lines, space etc.
-     @return data
+     - returns: data
      */
+    @inline(__always)
     open func getWholeData() -> String {
-		return attributes!.get(key: DataNode.DATA_KEY)
+        return String(decoding: getWholeDataUTF8(), as: UTF8.self)
+    }
+    
+    @inline(__always)
+    private func materializeRawDataIfNeeded() -> [UInt8]? {
+        if let slices = rawDataSlices {
+            var out: [UInt8] = []
+            out.reserveCapacity(rawDataSlicesCount)
+            for slice in slices {
+                out.append(contentsOf: slice)
+            }
+            rawDataSlices = nil
+            rawDataSlicesCount = 0
+            rawDataSlice = nil
+            return out
+        }
+        if let slice = rawDataSlice {
+            rawDataSlice = nil
+            return slice.toArray()
+        }
+        return nil
     }
 
+    @inline(__always)
+    open func getWholeDataUTF8() -> [UInt8] {
+        if rawDataSlice != nil || rawDataSlices != nil {
+            _ = ensureDataAttributes()
+        }
+        guard let attributes = attributes else {
+            return []
+        }
+        if let slice = attributes.valueSliceCaseSensitive(DataNode.DATA_KEY) {
+            return slice.toArray()
+        }
+        return []
+    }
+
+    private func ensureDataAttributes() -> Attributes {
+        if let attributes { return attributes }
+        let bytes = materializeRawDataIfNeeded() ?? []
+        let created = Attributes()
+        // Populate before attaching, so reads do not dirty source or selector caches.
+        try? created.put(DataNode.DATA_KEY, bytes)
+        attributes = created
+        return created
+    }
+
+    internal override func ensureAttributesForWrite() -> Attributes {
+        return ensureDataAttributes()
+    }
+
+    open override func getAttributes() -> Attributes? {
+        return ensureDataAttributes()
+    }
+
+    open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
+        _ = ensureDataAttributes()
+        return try super.attr(attributeKey)
+    }
+
+    open override func hasAttr(_ attributeKey: [UInt8]) -> Bool {
+        _ = ensureDataAttributes()
+        return super.hasAttr(attributeKey)
+    }
+
+    @discardableResult
+    open override func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
+        _ = ensureDataAttributes()
+        return try super.removeAttr(attributeKey)
+    }
+
+    @usableFromInline
+    internal func wholeDataSlice() -> ByteSlice {
+        if let slice = rawDataSlice {
+            return slice
+        }
+        if rawDataSlices != nil {
+            let materialized = getWholeDataUTF8()
+            return ByteSlice.fromArray(materialized)
+        }
+        guard let attributes = attributes else {
+            return ByteSlice.empty
+        }
+        return attributes.valueSliceCaseSensitive(DataNode.DATA_KEY) ?? ByteSlice.empty
+    }
+
+    @usableFromInline
+    internal func appendSlice(_ slice: ByteSlice) {
+        guard !slice.isEmpty else { return }
+        if let attrs = attributes {
+            attrs.appendValueSlice(key: DataNode.DATA_KEY, slice: slice)
+        } else if rawDataSlices != nil {
+            rawDataSlices!.append(slice)
+            rawDataSlicesCount += slice.count
+        } else if let existingSlice = rawDataSlice {
+            rawDataSlices = [existingSlice, slice]
+            rawDataSlicesCount = existingSlice.count + slice.count
+            rawDataSlice = nil
+        } else {
+            rawDataSlice = slice
+        }
+        if attributes == nil { bumpTextMutationVersion() }
+        markSourceDirty()
+    }
+
+    @usableFromInline
+    internal func extendSliceFromSourceRange(_ source: SourceBuffer, newRange: SourceRange) -> Bool {
+        guard rawDataSlice != nil,
+              rawDataSlices == nil,
+              attributes == nil,
+              !sourceRangeDirty
+        else {
+            return false
+        }
+        guard let existingRange = sourceRange,
+              existingRange.isValid,
+              newRange.isValid,
+              existingRange.end == newRange.start,
+              newRange.end <= source.bytes.count
+        else {
+            return false
+        }
+        rawDataSlice = ByteSlice(storage: source.storage, start: existingRange.start, end: newRange.end)
+        rawDataSlicesCount = 0
+        return true
+    }
+
+
+    @usableFromInline
+    internal func appendBytes(_ bytes: [UInt8]) {
+        appendSlice(ByteSlice.fromArray(bytes))
+    }
+
+
+
+
     /**
-     * Set the data contents of this node.
-     * @param data unencoded data
-     * @return this node, for chaining
+     Set the data contents of this node.
+     - parameter data: unencoded data
+     - returns: this node, for chaining
      */
     @discardableResult
+    @inline(__always)
     open func setWholeData(_ data: String) -> DataNode {
+        rawDataSlice = nil
+        rawDataSlices = nil
+        rawDataSlicesCount = 0
         do {
-            try attributes?.put(DataNode.DATA_KEY, data)
+            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data.utf8Array)
         } catch {}
+        markSourceDirty()
         return self
     }
 
+
+    @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
-        accum.append(getWholeData()) // data is not escaped in return from data nodes, so " in script, style is plain
+        accum.append(wholeDataSlice()) // data is not escaped in return from data nodes, so " in script, style is plain
     }
 
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
     /**
      Create a new DataNode from HTML encoded data.
-     @param encodedData encoded data
-     @param baseUri bass URI
-     @return new DataNode
+     - parameter encodedData: encoded data
+     - parameter baseUri: bass URI
+     - returns: new DataNode
      */
-    public static func createFromEncoded(_ encodedData: String, _ baseUri: String)throws->DataNode {
-        let data = try Entities.unescape(encodedData)
-        return DataNode(data, baseUri)
+    @inline(__always)
+    public static func createFromEncoded(_ encodedData: String, _ baseUri: String) throws -> DataNode {
+        let data = try Entities.unescape(encodedData.utf8Array)
+        return DataNode(data, baseUri.utf8Array)
     }
 
+    @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
+		let clone = DataNode(getWholeDataUTF8(), baseUri!)
 		return copy(clone: clone)
 	}
 
+	@inline(__always)
 	public override func copy(parent: Node?) -> Node {
-		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
+		let clone = DataNode(getWholeDataUTF8(), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
 
+    @inline(__always)
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = DataNode(getWholeDataUTF8(), baseUri!)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+    }
+
+    @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)
 	}

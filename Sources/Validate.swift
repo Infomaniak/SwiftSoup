@@ -3,16 +3,15 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 02/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-struct Validate {
+public struct Validate {
 
     /**
-     * Validates that the object is not null
-     * @param obj object to test
+     * Validates that the object is not `nil`
+     * - parameter obj: object to test
      */
     public static func notNull(obj: Any?) throws {
         if (obj == nil) {
@@ -21,9 +20,9 @@ struct Validate {
     }
 
     /**
-     * Validates that the object is not null
-     * @param obj object to test
-     * @param msg message to output if validation fails
+     * Validates that the object is not `nil`
+     * - parameter obj: object to test
+     * - parameter msg: message to output if validation fails
      */
     public static func notNull(obj: AnyObject?, msg: String) throws {
         if (obj == nil) {
@@ -33,7 +32,7 @@ struct Validate {
 
     /**
      * Validates that the value is true
-     * @param val object to test
+     * - parameter val: object to test
      */
     public static func isTrue(val: Bool) throws {
         if (!val) {
@@ -43,8 +42,8 @@ struct Validate {
 
     /**
      * Validates that the value is true
-     * @param val object to test
-     * @param msg message to output if validation fails
+     * - parameter val: object to test
+     * - parameter msg: message to output if validation fails
      */
     public static func isTrue(val: Bool, msg: String) throws {
         if (!val) {
@@ -54,7 +53,7 @@ struct Validate {
 
     /**
      * Validates that the value is false
-     * @param val object to test
+     * - parameter val: object to test
      */
     public static func isFalse(val: Bool) throws {
         if (val) {
@@ -64,8 +63,8 @@ struct Validate {
 
     /**
      * Validates that the value is false
-     * @param val object to test
-     * @param msg message to output if validation fails
+     * - parameter val: object to test
+     * - parameter msg: message to output if validation fails
      */
     public static func isFalse(val: Bool, msg: String) throws {
         if (val) {
@@ -74,17 +73,17 @@ struct Validate {
     }
 
     /**
-     * Validates that the array contains no null elements
-     * @param objects the array to test
+     * Validates that the array contains no `nil` elements
+     * - parameter objects: the array to test
      */
     public static func noNullElements(objects: [AnyObject?]) throws {
         try noNullElements(objects: objects, msg: "Array must not contain any null objects")
     }
 
     /**
-     * Validates that the array contains no null elements
-     * @param objects the array to test
-     * @param msg message to output if validation fails
+     * Validates that the array contains no `nil` elements
+     * - parameter objects: the array to test
+     * - parameter msg: message to output if validation fails
      */
     public static func noNullElements(objects: [AnyObject?], msg: String) throws {
         for obj in objects {
@@ -96,29 +95,37 @@ struct Validate {
 
     /**
      * Validates that the string is not empty
-     * @param string the string to test
+     * - parameter string: the string to test
      */
-    public static func notEmpty(string: String?) throws {
-        if (string == nil || string?.count == 0) {
+    public static func notEmpty<T: Collection>(string: T?) throws where T.Element == UInt8 {
+        if string?.isEmpty ?? true {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: "String must not be empty")
         }
 
     }
+    
+    public static func notEmpty(string: String?) throws {
+        try notEmpty(string: string?.utf8Array)
+    }
 
     /**
      * Validates that the string is not empty
-     * @param string the string to test
-     * @param msg message to output if validation fails
+     * - parameter string: the string to test
+     * - parameter msg: message to output if validation fails
      */
-   public static func notEmpty(string: String?, msg: String ) throws {
-        if (string == nil || string?.count == 0) {
+   public static func notEmpty(string: [UInt8]?, msg: String ) throws {
+       if string?.isEmpty ?? true {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: msg)
         }
+    }
+    
+    public static func notEmpty(string: String?, msg: String) throws {
+        try notEmpty(string: string?.utf8Array, msg: msg)
     }
 
     /**
      Cause a failure.
-     @param msg message to output.
+     - parameter msg: message to output.
      */
     public static func fail(msg: String) throws {
         throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: msg)

@@ -3,23 +3,12 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
 import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -60,6 +49,31 @@ class CharacterReaderTest: XCTestCase {
         // XCTAssertTrue(r.isEmpty())
         // XCTAssertEqual(CharacterReader.EOF, r.current())
     }
+    
+    func testMultibyteUnconsume() {
+        let r = CharacterReader("π>")
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual(">", r.current())
+        r.unconsume()
+        XCTAssertEqual("π", r.current())
+    }
+    
+    func testConsumeAsStringAsciiAndMultibyte() {
+        let r = CharacterReader("abπ")
+        XCTAssertEqual("a", r.consumeAsString())
+        XCTAssertEqual("b", r.consumeAsString())
+        XCTAssertEqual("π", r.consumeAsString())
+        XCTAssertTrue(r.isEmpty())
+    }
+    
+    func testAdvanceAsciiAndMultibyte() {
+        let r = CharacterReader("aπb")
+        XCTAssertEqual("a", r.current())
+        r.advance()
+        XCTAssertEqual("π", r.current())
+        r.advance()
+        XCTAssertEqual("b", r.current())
+    }
 
     func testMark() {
         let r = CharacterReader("one")
@@ -86,7 +100,7 @@ class CharacterReaderTest: XCTestCase {
 
         XCTAssertEqual(nil, r.nextIndexOf("x"))
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 3), r.nextIndexOf("h"))
-        let pull = r.consumeTo("h")
+        let pull = String(decoding: r.consumeTo("h"), as: UTF8.self)
         XCTAssertEqual("bla", pull)
         XCTAssertEqual("h", r.consume())
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 6), r.nextIndexOf("l"))
@@ -120,6 +134,31 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("T", r.consume())
         XCTAssertEqual("hree", r.consumeTo("T")) // consume to end
     }
+    
+    func testConsumeToUnicodeScalarMultibyte() {
+        let pi = "π".unicodeScalars.first!
+        let r = CharacterReader("aπbπc")
+        XCTAssertEqual("a", String(decoding: r.consumeTo(pi), as: UTF8.self))
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual("b", String(decoding: r.consumeTo(pi), as: UTF8.self))
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual("c", r.consumeToEnd())
+    }
+
+    func testConsumeToUnicodeScalarAscii() {
+        let lt = "<".unicodeScalars.first!
+        let r = CharacterReader("ab<cd")
+        XCTAssertEqual("ab", String(decoding: r.consumeTo(lt), as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+        XCTAssertEqual("cd", r.consumeToEnd())
+    }
+    
+    func testConsumeToStringMultibyte() {
+        let r = CharacterReader("aπbπc")
+        XCTAssertEqual("a", r.consumeTo("πb"))
+        XCTAssertEqual("πb", r.consumeTo("πc"))
+        XCTAssertEqual("πc", r.consumeToEnd())
+    }
 
     func testConsumeToString() {
         let r = CharacterReader("One Two Two Four")
@@ -139,29 +178,101 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One 二 &bar; qux 三")
-        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One 二 ", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
-        XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("bar", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
+        XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
+        XCTAssertEqual(" qux 三", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
+    }
+    
+    func testConsumeToAnyMultibyte() {
+        let r = CharacterReader("若い\"")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["\"", UnicodeScalar.Ampersand, "\u{0000}"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "若い")
+    }
+    
+    func testConsumeToAnySingleByteFastPathDoesNotSplitMultibyte() {
+        let r = CharacterReader("a☃b")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["b", "<"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "a☃")
+        XCTAssertEqual("b", r.consume())
+    }
+
+    func testConsumeDataFastNoNullStopsAtDelimiter() {
+        let prefix = String(repeating: "a", count: 80)
+        let input = prefix + "&rest"
+        let r = CharacterReader(input)
+        let value = r.consumeDataFastNoNull()
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataFastNoNullConsumesAllWhenNoDelimiter() {
+        let input = String(repeating: "b", count: 96)
+        let r = CharacterReader(input)
+        let value = r.consumeDataFastNoNull()
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), input)
+        XCTAssertTrue(r.isEmpty())
+    }
+
+    func testConsumeToAnyOfThreeWordScanStops() {
+        let prefix = String(repeating: "x", count: 80)
+        let input = prefix + "<rest"
+        let r = CharacterReader(input)
+        let value = r.consumeToAnyOfThree(UInt8(ascii: "&"), UInt8(ascii: "<"), UInt8(0))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual("<", r.consume())
+    }
+
+    func testConsumeToAnyOfFourWordScanStops() {
+        let prefix = String(repeating: "y", count: 80)
+        let input = prefix + ">rest"
+        let r = CharacterReader(input)
+        let value = r.consumeToAnyOfFour(UInt8(ascii: "<"), UInt8(ascii: ">"), UInt8(ascii: "&"), UInt8(0))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual(">", r.consume())
     }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One", r.consumeLetterSequence())
+        XCTAssertEqual("One", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
         XCTAssertEqual(" &", r.consumeTo("bar;"))
-        XCTAssertEqual("bar", r.consumeLetterSequence())
-        XCTAssertEqual("; qux", r.consumeToEnd())
+        XCTAssertEqual("bar", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+       XCTAssertEqual("; qux", r.consumeToEnd())
     }
 
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
-        XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("One12", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" ", r.consume())
-        XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("Two", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
+    }
+    
+    func testConsumeLetterSequenceMultibyte() {
+        let r = CharacterReader("πβ123")
+        XCTAssertEqual("πβ", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+        XCTAssertEqual("123", r.consumeToEnd())
+    }
+    
+    func testConsumeDigitSequenceMultibyte() {
+        let r = CharacterReader("٣4π")
+        XCTAssertEqual("٣4", String(decoding: r.consumeDigitSequence(), as: UTF8.self))
+        XCTAssertEqual("π", r.consumeToEnd())
+    }
+
+    func testConsumeDigitSequenceAscii() {
+        let r = CharacterReader("1234a")
+        XCTAssertEqual("1234", String(decoding: r.consumeDigitSequence(), as: UTF8.self))
+        XCTAssertEqual("a", r.consumeToEnd())
+    }
+    
+    func testConsumeHexSequenceAscii() {
+        let r = CharacterReader("0aFz")
+        XCTAssertEqual("0aF", String(decoding: r.consumeHexSequence(), as: UTF8.self))
+        XCTAssertEqual("z", r.consumeToEnd())
     }
 
     func testMatches() {
@@ -176,6 +287,31 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertFalse(r.matches("ne Two Three Four"))
         XCTAssertEqual("ne Two Three", r.consumeToEnd())
         XCTAssertFalse(r.matches("ne"))
+    }
+    
+    func testMatchesNonAscii() {
+        let r = CharacterReader("πβγ")
+        XCTAssertTrue(r.matches("π"))
+        XCTAssertTrue(r.matches("πβ"))
+        XCTAssertFalse(r.matches("β"))
+    }
+
+    func testMatchesLetterAsciiAndMultibyte() {
+        let r = CharacterReader("aπ1")
+        XCTAssertTrue(r.matchesLetter())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesLetter())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesLetter())
+    }
+    
+    func testMatchesDigitAsciiAndMultibyte() {
+        let r = CharacterReader("1٣a")
+        XCTAssertTrue(r.matchesDigit())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesDigit())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesDigit())
     }
 
     func testMatchesIgnoreCase() {
@@ -204,14 +340,115 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertFalse(r.containsIgnoreCase("one"))
     }
 
+    func testContainsIgnoreCasePrefixSuffix() {
+        let r = CharacterReader("<title>Test</TITLE>")
+        XCTAssertTrue(r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: "title".utf8Array))
+        let r2 = CharacterReader("<title>Test</BODY>")
+        XCTAssertFalse(r2.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: "title".utf8Array))
+    }
+
     func testMatchesAny() {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One", String(decoding: r.consumeToAny(ParsingStrings([" ", "\n", "\t"])), as: UTF8.self))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
+    }
+
+    func testMatchesAnyMultibyte() {
+        let r = CharacterReader("πx")
+        XCTAssertTrue(r.matchesAny("π"))
+        _ = r.consume()
+        XCTAssertFalse(r.matchesAny("π"))
+    }
+
+    func testConsumeDataStopsAtAmpersandAndLt() {
+        let r = CharacterReader("ab&cd<ef")
+        let data = r.consumeData()
+        XCTAssertEqual("ab", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+        let data2 = r.consumeData()
+        XCTAssertEqual("cd", String(decoding: data2, as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+        let data3 = r.consumeData()
+        XCTAssertEqual("ef", String(decoding: data3, as: UTF8.self))
+    }
+
+    func testConsumeDataStopsAtNullByte() {
+        let bytes: [UInt8] = [0x61, 0x62, 0x00, 0x63, 0x64]
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual("ab", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(UnicodeScalar(0x00), r.current())
+        XCTAssertEqual(UnicodeScalar(0x00), r.consume())
+        let data2 = r.consumeData()
+        XCTAssertEqual("cd", String(decoding: data2, as: UTF8.self))
+    }
+
+    func testConsumeDataWordScanBoundary() {
+        let prefix = String(repeating: "a", count: 80)
+        let r = CharacterReader(prefix + "&rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataWordScanBoundaryAligned() {
+        let prefix = String(repeating: "a", count: 64)
+        let r = CharacterReader(prefix + "<rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+    }
+
+    func testConsumeDataWordScanWithMultibytePrefix() {
+        let prefix = String(repeating: "a", count: 70) + "π"
+        let r = CharacterReader(prefix + "&rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataWordScanNullByteLongInput() {
+        let aByte = "a".utf8.first!
+        let prefix = [UInt8](repeating: aByte, count: 72)
+        let suffix = [UInt8](repeating: aByte, count: 16)
+        let bytes = prefix + [0x00] + suffix + ["b".utf8.first!]
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual(prefix.count, data.count)
+        XCTAssertEqual(UnicodeScalar(0x00), r.current())
+        _ = r.consume()
+        let data2 = r.consumeData()
+        XCTAssertEqual(suffix.count + 1, data2.count)
+        XCTAssertEqual(String(repeating: "a", count: suffix.count) + "b", String(decoding: data2, as: UTF8.self))
+    }
+
+    func testConsumeDataWordScanNoTerminatorsLong() {
+        let prefix = String(repeating: "a", count: 96)
+        let r = CharacterReader(prefix)
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(CharacterReader.EOF, r.current())
+    }
+
+    func testConsumeDataWordScanFindsTerminatorInsideWord() {
+        var bytes = [UInt8](repeating: "a".utf8.first!, count: 96)
+        bytes[48] = "&".utf8.first!
+        bytes[70] = "<".utf8.first!
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual(String(repeating: "a", count: 48), String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataNoTerminators() {
+        let r = CharacterReader("abcdef")
+        let data = r.consumeData()
+        XCTAssertEqual("abcdef", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(CharacterReader.EOF, r.current())
     }
 
     func testCachesStrings() {
@@ -298,31 +535,17 @@ class CharacterReaderTest: XCTestCase {
         _ = try SwiftSoup.parse(html)
     }
 
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testConsume", testConsume),
-			("testUnconsume", testUnconsume),
-			("testMark", testMark),
-			("testConsumeToEnd", testConsumeToEnd),
-			("testNextIndexOfChar", testNextIndexOfChar),
-			("testNextIndexOfString", testNextIndexOfString),
-			("testNextIndexOfUnmatched", testNextIndexOfUnmatched),
-			("testConsumeToChar", testConsumeToChar),
-			("testConsumeToString", testConsumeToString),
-			("testAdvance", testAdvance),
-			("testConsumeToAny", testConsumeToAny),
-			("testConsumeLetterSequence", testConsumeLetterSequence),
-			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
-			("testMatches", testMatches),
-			("testMatchesIgnoreCase", testMatchesIgnoreCase),
-			("testContainsIgnoreCase", testContainsIgnoreCase),
-			("testMatchesAny", testMatchesAny),
-			("testCachesStrings", testCachesStrings),
-			("testRangeEquals", testRangeEquals),
-            ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
-            ("testURLCrashRegression", testURLCrashRegression),
-        ]
-	}()
-
+    func testMultibyteConsume() throws {
+        let r = CharacterReader("-本文-")
+        XCTAssertEqual(0, r.getPos())
+        XCTAssertEqual("-", r.consume())
+        XCTAssertEqual(1, r.getPos())
+        XCTAssertEqual("本", r.current())
+        XCTAssertEqual("本", r.consume())
+        XCTAssertEqual(4, r.getPos())
+        XCTAssertEqual("文", r.current())
+        XCTAssertEqual("文", r.consume())
+        XCTAssertEqual(7, r.getPos())
+        XCTAssertEqual("-", r.consume())
+    }
 }

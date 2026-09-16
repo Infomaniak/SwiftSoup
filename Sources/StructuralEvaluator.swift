@@ -3,43 +3,75 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 23/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
 /**
- * Base structural evaluator.
+ Base structural evaluator.
  */
-public class StructuralEvaluator: Evaluator {
+public class StructuralEvaluator: Evaluator, @unchecked Sendable {
     let evaluator: Evaluator
 
     public init(_ evaluator: Evaluator) {
         self.evaluator = evaluator
     }
 
-    public class Root: Evaluator {
+    public class Root: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element) -> Bool {
             return root === element
         }
     }
 
-    public class Has: StructuralEvaluator {
+    public class Has: StructuralEvaluator, @unchecked Sendable {
+        /// Whether matching this relative selector may leave the candidate's
+        /// descendant subtree through a leading sibling combinator.
+        let searchesFollowingSiblings: Bool
+
         public override init(_ evaluator: Evaluator) {
+            self.searchesFollowingSiblings = false
+            super.init(evaluator)
+        }
+
+        init(_ evaluator: Evaluator, followingSiblings: Bool) {
+            self.searchesFollowingSiblings = followingSiblings
             super.init(evaluator)
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            for e in try element.getAllElements().array() {
-                do {
-                    if(e != element) {
-                        if ((try evaluator.matches(root, e))) {
-                            return true
+            var stack: [Element] = []
+            if searchesFollowingSiblings {
+                var sibling = try element.nextElementSibling()
+                while let current = sibling {
+                    stack.append(current)
+                    sibling = try current.nextElementSibling()
+                }
+                stack.reverse()
+            } else {
+                let children = element.childNodes
+                if !children.isEmpty {
+                    for child in children.reversed() {
+                        if let childEl = child as? Element {
+                            stack.append(childEl)
                         }
                     }
-                } catch {}
+                }
             }
-
+            while let current = stack.popLast() {
+                do {
+                    if try evaluator.matches(element, current) {
+                        return true
+                    }
+                } catch {}
+                let currentChildren = current.childNodes
+                if !currentChildren.isEmpty {
+                    for child in currentChildren.reversed() {
+                        if let childEl = child as? Element {
+                            stack.append(childEl)
+                        }
+                    }
+                }
+            }
             return false
         }
 
@@ -48,7 +80,7 @@ public class StructuralEvaluator: Evaluator {
         }
     }
 
-    public class Not: StructuralEvaluator {
+    public class Not: StructuralEvaluator, @unchecked Sendable {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -65,7 +97,7 @@ public class StructuralEvaluator: Evaluator {
         }
     }
 
-    public class Parent: StructuralEvaluator {
+    public class Parent: StructuralEvaluator, @unchecked Sendable {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -76,17 +108,17 @@ public class StructuralEvaluator: Evaluator {
             }
 
             var parent = element.parent()
-            while (true) {
+            while let current = parent {
                 do {
-                    if let p = parent, try evaluator.matches(root, p) {
+                    if try evaluator.matches(root, current) {
                         return true
                     }
                 } catch {}
 
-                if (parent == root) {
+                if current == root {
                     break
                 }
-                parent = parent?.parent()
+                parent = current.parent()
             }
             return false
         }
@@ -96,7 +128,7 @@ public class StructuralEvaluator: Evaluator {
         }
     }
 
-    public class ImmediateParent: StructuralEvaluator {
+    public class ImmediateParent: StructuralEvaluator, @unchecked Sendable {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -120,7 +152,7 @@ public class StructuralEvaluator: Evaluator {
         }
     }
 
-    public class PreviousSibling: StructuralEvaluator {
+    public class PreviousSibling: StructuralEvaluator, @unchecked Sendable {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -149,7 +181,7 @@ public class StructuralEvaluator: Evaluator {
         }
     }
 
-    class ImmediatePreviousSibling: StructuralEvaluator {
+    class ImmediatePreviousSibling: StructuralEvaluator, @unchecked Sendable {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
